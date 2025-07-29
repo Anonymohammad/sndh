@@ -133,11 +133,14 @@ const REQUIRED_SHEETS = {
 // Entry point for web app
 function doGet(e) {
   const userEmail = Session.getEffectiveUser().getEmail();
-  
+
   // Initialize database on first access
   initializeDatabase();
-  
-  return HtmlService.createTemplateFromFile('index')
+
+  const role = getUserRole(userEmail);
+  const template = role === 'employee' ? 'EmployeeApp' : 'index';
+
+  return HtmlService.createTemplateFromFile(template)
     .evaluate()
     .setTitle('Restaurant Management System')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
@@ -732,6 +735,18 @@ function parseInputDate(date) {
 
   // Fallback to default Date parsing
   return new Date(date);
+}
+
+// Determine the role of the current user based on email
+function getUserRole(email) {
+  try {
+    const employees = getSheetData('Employees');
+    const match = employees.find(emp => (emp.email || '').toLowerCase() === email.toLowerCase());
+    return match && match.role ? match.role : 'employee';
+  } catch (error) {
+    Logger.log('Error getting user role: ' + error.toString());
+    return 'employee';
+  }
 }
 
 function generateDailyReport(date) {

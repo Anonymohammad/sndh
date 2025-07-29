@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+</head>
+<body class="bg-olive-50">
+<div id="loading" class="text-center py-8">Loading...</div>
+<div id="root" style="display:none"></div>
+
+<script type="text/babel">
+function Navigation({activeTab,onTabChange}) {
+    const tabs=[
+        {id:'daily_entry',label:'Daily Entry'},
+        {id:'weekly_counts',label:'Weekly Counts'},
+        {id:'settings',label:'Logout/Settings'}
+    ];
+    return (
+        <nav className="bg-white shadow-sm border-b border-gray-200">
+            <div className="container mx-auto px-4 overflow-x-auto">
+                <div className="flex space-x-6">
+                    {tabs.map(tab => (
+                        <button key={tab.id} onClick={() => onTabChange(tab.id)}
+                            className={`flex items-center gap-2 px-4 py-4 text-sm font-medium border-b-2 transition-all duration-200 ${activeTab===tab.id?'text-olive-600 border-olive-600 bg-olive-50':'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300 hover:bg-gray-50'}`}>
+                            {tab.label}
+                        </button>
+                    ))}
+                </div>
+            </div>
+        </nav>
+    );
+}
+
+function WeeklyCountsTab() {
+    return (
+        <div className="bg-white p-6 rounded-lg shadow">
+            <h2 className="text-xl font-bold mb-4">Weekly Counts</h2>
+            <p className="text-gray-500">Counts are recorded in the system.</p>
+        </div>
+    );
+}
+
+function SettingsTab() {
+    return (
+        <div className="bg-white p-6 rounded-lg shadow">
+            <h2 className="text-xl font-bold mb-4">Settings</h2>
+            <p className="text-gray-500">Logout or update your settings here.</p>
+        </div>
+    );
+}
+
+function App() {
+    const [activeTab,setActiveTab]=React.useState('daily_entry');
+    return (
+        <div className="min-h-screen bg-gradient-to-br from-olive-50 to-olive-100">
+            <header className="bg-white shadow-sm">
+                <div className="container mx-auto px-4 py-4">
+                    <h1 className="text-2xl font-bold text-olive-800">Employee Portal</h1>
+                </div>
+            </header>
+            <Navigation activeTab={activeTab} onTabChange={setActiveTab}/>
+            <main className="container mx-auto px-4 py-8">
+                {activeTab==='daily_entry' && <DailyEntryTab/>}
+                {activeTab==='weekly_counts' && <WeeklyCountsTab/>}
+                {activeTab==='settings' && <SettingsTab/>}
+            </main>
+        </div>
+    );
+}
+
+window.initializeEmployeeApp=function(){
+    ReactDOM.render(React.createElement(App), document.getElementById('root'));
+};
+</script>
+
+<?!= include('DailyEntryTab'); ?>
+
+<script>
+document.addEventListener('DOMContentLoaded',function(){
+    document.getElementById('loading').style.display='none';
+    document.getElementById('root').style.display='block';
+    if(typeof window.initializeEmployeeApp==='function'){
+        window.initializeEmployeeApp();
+    }
+});
+</script>
+</body>
+</html>
