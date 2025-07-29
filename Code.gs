@@ -719,15 +719,28 @@ function saveProductSales(salesData, date) {
 
 // FIXED: Replace generateDailyReport function in Code.gs with proper date handling
 
+// Helper to robustly parse a date string in either ISO (yyyy-mm-dd) or native formats
+function parseInputDate(date) {
+  if (typeof date !== 'string') {
+    return new Date(date);
+  }
+
+  // ISO format (e.g. 2024-07-26)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return new Date(date + 'T12:00:00');
+  }
+
+  // Fallback to default Date parsing
+  return new Date(date);
+}
+
 function generateDailyReport(date) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    
-    // Fix the date comparison - convert input date to proper format
+
     let targetDateString;
     if (date) {
-      // If date is passed as string like "2025-07-25", convert it properly
-      const targetDate = new Date(date + 'T12:00:00'); // Add time to avoid timezone issues
+      const targetDate = parseInputDate(date);
       targetDateString = targetDate.toDateString();
     } else {
       targetDateString = new Date().toDateString();

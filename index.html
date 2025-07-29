@@ -567,25 +567,26 @@
         
         try {
             let dateParam = null;
-            
+            const formatISO = (d) => d.toISOString().split('T')[0];
+
             if (selectedPeriod === 'today') {
-                dateParam = new Date().toDateString();
+                dateParam = formatISO(new Date());
             } else if (selectedPeriod === 'yesterday') {
                 const yesterday = new Date();
                 yesterday.setDate(yesterday.getDate() - 1);
-                dateParam = yesterday.toDateString();
+                dateParam = formatISO(yesterday);
             } else if (selectedPeriod === 'custom') {
                 if (customDate) {
                     const selectedDate = new Date(customDate);
-                    dateParam = selectedDate.toDateString();
+                    dateParam = formatISO(selectedDate);
                 } else {
                     setLoading(false);
                     return; // Don't load data if no custom date selected
                 }
             } else if (selectedPeriod === 'week') {
-                dateParam = new Date().toDateString();
+                dateParam = formatISO(new Date());
             } else if (selectedPeriod === 'month') {
-                dateParam = new Date().toDateString();
+                dateParam = formatISO(new Date());
             }
             
             console.log("Selected period:", selectedPeriod);
