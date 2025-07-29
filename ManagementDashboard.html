@@ -7,10 +7,10 @@ function ManagementDashboard() {
     const [alerts, setAlerts] = React.useState([]);
     const [loading, setLoading] = React.useState(true);
     const [cardLoading, setCardLoading] = React.useState({
-        metrics: false,
-        shawarma: false,
-        sales: false,
-        inventory: false
+        metrics: true,
+        shawarma: true,
+        sales: true,
+        inventory: true
     });
     const [showDataStatus, setShowDataStatus] = React.useState(false);
     const [showDebugData, setShowDebugData] = React.useState(false);
@@ -192,17 +192,7 @@ function ManagementDashboard() {
         return children;
     };
 
-    // Only show initial loading for first load
-    if (loading && !dashboardData) {
-        return (
-            <div className="flex items-center justify-center min-h-64">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-olive-600 mb-4 mx-auto"></div>
-                    <p className="text-olive-600">Loading management dashboard...</p>
-                </div>
-            </div>
-        );
-    }
+
 
     return (
         <div className="space-y-6">
