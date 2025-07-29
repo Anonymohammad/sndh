@@ -16,7 +16,9 @@ function ManagementDashboard() {
     const [showDebugData, setShowDebugData] = React.useState(false);
 
     React.useEffect(() => {
-        loadDashboardData();
+        if (selectedPeriod !== 'custom' || (selectedPeriod === 'custom' && customDate)) {
+            loadDashboardData();
+        }
     }, [selectedPeriod, customDate]);
 
     const loadDashboardData = async () => {
