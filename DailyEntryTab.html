@@ -114,6 +114,7 @@ function DailyEntryTab() {
     const [managementPin, setManagementPin] = React.useState('');
     const [showPinInput, setShowPinInput] = React.useState(false);
     const [duplicateWarning, setDuplicateWarning] = React.useState(false);
+    const [isUpdateMode, setIsUpdateMode] = React.useState(false);
     const [loadingExistingData, setLoadingExistingData] = React.useState(false);
     const [checkingExistingData, setCheckingExistingData] = React.useState(false);
     const [fieldsLocked, setFieldsLocked] = React.useState(false);
@@ -172,6 +173,7 @@ function DailyEntryTab() {
         setCheckingExistingData(true);
         setDuplicateWarning(false);
         setExistingEntry(null);
+        setIsUpdateMode(false);
         setFieldsLocked(true);
         setShowPinInput(false);
         setShowLoadExistingPin(false);
@@ -423,13 +425,13 @@ function DailyEntryTab() {
         e.preventDefault();
         
         // Check if updating existing entry
-        if (duplicateWarning && !showPinInput) {
+        if (isUpdateMode && !showPinInput) {
             setShowPinInput(true);
             return;
         }
-        
+
         // Validate PIN if updating
-        if (duplicateWarning && showPinInput) {
+        if (isUpdateMode && showPinInput) {
             if (!managementPin || managementPin.trim() === '') {
                 alert('Please enter management PIN');
                 return;
@@ -456,8 +458,8 @@ function DailyEntryTab() {
                 bread: formData.bread,
                 highCostItems: formData.highCostItems,
                 notes: formData.notes,
-                isUpdate: duplicateWarning,
-                managementPin: duplicateWarning ? managementPin : null
+                isUpdate: isUpdateMode,
+                managementPin: isUpdateMode ? managementPin : null
             };
             
             await google.script.run
@@ -520,6 +522,7 @@ function DailyEntryTab() {
             },
             notes: ''
         });
+        setIsUpdateMode(false);
     };
     
     const confirmLoadExistingData = async () => {
@@ -626,6 +629,7 @@ function DailyEntryTab() {
                                 }));
                                 
                                 setFieldsLocked(false);
+                                setIsUpdateMode(true);
                                 setDuplicateWarning(false);
                                 setShowLoadExistingPin(false);
                                 setLoadExistingPin('');
@@ -693,6 +697,7 @@ function DailyEntryTab() {
         });
         
         setDuplicateWarning(false);
+        setIsUpdateMode(false);
         setFieldsLocked(false);
         setShowLoadExistingPin(false);
         setLoadExistingPin('');
@@ -1453,9 +1458,9 @@ function DailyEntryTab() {
                             React.createElement('div', {
                                 className: 'animate-spin rounded-full h-4 w-4 border-b-2 border-white'
                             }),
-                            duplicateWarning ? 'Updating...' : 'Saving...'
+                            isUpdateMode ? 'Updating...' : 'Saving...'
                         ) : React.createElement(React.Fragment, null,
-                            fieldsLocked ? 'Load Data First' : (duplicateWarning ? 'Update Entry' : 'Save Daily Entry'),
+                            fieldsLocked ? 'Load Data First' : (isUpdateMode ? 'Update Entry' : 'Save Daily Entry'),
                             showPinInput && !managementPin && ' (PIN Required)'
                         )
                     )
