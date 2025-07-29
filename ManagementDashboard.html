@@ -38,20 +38,22 @@ function ManagementDashboard() {
             console.log("Selected period:", selectedPeriod);
             console.log("Custom date:", customDate);
             
+            const formatISO = (d) => d.toISOString().split('T')[0];
+
             if (selectedPeriod === 'custom' && customDate) {
-                dateParam = new Date(customDate).toDateString();
+                dateParam = formatISO(new Date(customDate));
             } else if (selectedPeriod === 'today') {
-                dateParam = new Date().toDateString();
+                dateParam = formatISO(new Date());
             } else if (selectedPeriod === 'yesterday') {
                 const yesterday = new Date();
                 yesterday.setDate(yesterday.getDate() - 1);
-                dateParam = yesterday.toDateString();
+                dateParam = formatISO(yesterday);
             } else if (selectedPeriod === 'week') {
                 // For week, we'll use today's date but the backend can handle week logic
-                dateParam = new Date().toDateString();
+                dateParam = formatISO(new Date());
             } else if (selectedPeriod === 'month') {
                 // For month, we'll use today's date but the backend can handle month logic
-                dateParam = new Date().toDateString();
+                dateParam = formatISO(new Date());
             }
             
             console.log("Requesting data for date:", dateParam);
