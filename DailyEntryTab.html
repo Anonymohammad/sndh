@@ -442,21 +442,51 @@ function DailyEntryTab() {
         
         try {
             // Prepare data for backend
-            const entryData = {
-                date: selectedDate,
-                shawarmaStack: {
-                    ...formData.shawarmaStack,
-                    revenue: formData.sales.shawarma_revenue, // Get revenue from sales section
-                    loss_weight: calculatedMetrics && calculatedMetrics.shawarma ? calculatedMetrics.shawarma.lossWeight : 0,
-                    loss_percentage: calculatedMetrics && calculatedMetrics.shawarma ? calculatedMetrics.shawarma.lossPercentage : 0,
-                    total_waste_weight: calculatedMetrics && calculatedMetrics.shawarma ? calculatedMetrics.shawarma.totalWasteWeight : 0,
-                    total_waste_percentage: calculatedMetrics && calculatedMetrics.shawarma ? calculatedMetrics.shawarma.totalWastePercentage : 0
-                },
-                sales: formData.sales,
-                rawProteins: formData.rawProteins,
-                marinatedProteins: formData.marinatedProteins,
-                bread: formData.bread,
-                highCostItems: formData.highCostItems,
+const inventory = {
+    chicken_breast_remaining: formData.rawProteins.frozen_chicken_breast_remaining,
+    chicken_breast_received: formData.rawProteins.frozen_chicken_breast_received,
+    chicken_shawarma_remaining: formData.rawProteins.chicken_shawarma_remaining,
+    chicken_shawarma_received: formData.rawProteins.chicken_shawarma_received,
+    steak_remaining: formData.rawProteins.steak_remaining,
+    steak_received: formData.rawProteins.steak_received,
+
+    // Marinated proteins
+    fahita_chicken_remaining: formData.marinatedProteins.fahita_chicken_remaining,
+    fahita_chicken_received: formData.marinatedProteins.fahita_chicken_received,
+    chicken_sub_remaining: formData.marinatedProteins.chicken_sub_remaining,
+    chicken_sub_received: formData.marinatedProteins.chicken_sub_received,
+    spicy_strips_remaining: formData.marinatedProteins.spicy_strips_remaining,
+    spicy_strips_received: formData.marinatedProteins.spicy_strips_received,
+    original_strips_remaining: formData.marinatedProteins.original_strips_remaining,
+    original_strips_received: formData.marinatedProteins.original_strips_received,
+
+    saj_bread_remaining: formData.bread.saj_bread_remaining,
+    saj_bread_received: formData.bread.saj_bread_received,
+    pita_bread_remaining: formData.bread.pita_bread_remaining,
+    pita_bread_received: formData.bread.pita_bread_received,
+    bread_roll_remaining: formData.bread.bread_rolls_remaining,
+    bread_roll_received: formData.bread.bread_rolls_received,
+
+    cream_remaining: formData.highCostItems.cream_remaining,
+    cream_received: formData.highCostItems.cream_received,
+    mayo_remaining: formData.highCostItems.mayo_remaining,
+    mayo_received: formData.highCostItems.mayo_received
+};
+
+const entryData = {
+    date: selectedDate,
+    shawarmaStack: {
+        ...formData.shawarmaStack,
+        revenue: formData.sales.shawarma_revenue,
+        loss_weight: calculatedMetrics && calculatedMetrics.shawarma ? calculatedMetrics.shawarma.lossWeight : 0,
+        loss_percentage: calculatedMetrics && calculatedMetrics.shawarma ? calculatedMetrics.shawarma.lossPercentage : 0,
+        total_waste_weight: calculatedMetrics && calculatedMetrics.shawarma ? calculatedMetrics.shawarma.totalWasteWeight : 0,
+        total_waste_percentage: calculatedMetrics && calculatedMetrics.shawarma ? calculatedMetrics.shawarma.totalWastePercentage : 0
+    },
+    sales: formData.sales,
+    inventory: inventory
+};
+
                 notes: formData.notes,
                 isUpdate: isUpdateMode,
                 managementPin: isUpdateMode ? managementPin : null
