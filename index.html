@@ -1506,6 +1506,15 @@
     <?!= include('ManagementDashboard'); ?>
     <?!= include('app-bundle'); ?>
 
+    <button id="logoutBtn" class="fixed top-2 right-2 bg-red-500 text-white px-3 py-1 rounded" onclick="logout()">Logout</button>
+    <script>
+        function logout() {
+            google.script.run.withSuccessHandler(function() {
+                window.location.reload();
+            }).logoutUser();
+        }
+    </script>
+
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             console.log("DOM loaded");

@@ -109,7 +109,7 @@ const REQUIRED_SHEETS = {
   // Employee Management
   Employees: {
     requiredHeaders: [
-      'id', 'name', 'email', 'phone', 'role', 'hourly_rate', 'hire_date',
+      'id', 'name', 'email', 'pin_hash', 'phone', 'role', 'hourly_rate', 'hire_date',
       'active', 'created_at', 'updated_at'
     ]
   },
@@ -133,11 +133,23 @@ const REQUIRED_SHEETS = {
 // Entry point for web app
 function doGet(e) {
   const userEmail = Session.getEffectiveUser().getEmail();
-  
+
   // Initialize database on first access
   initializeDatabase();
-  
-  return HtmlService.createTemplateFromFile('index')
+
+  const cache = CacheService.getUserCache();
+  const role = cache.get('userRole');
+
+  var fileToServe;
+  if (!role) {
+    fileToServe = 'Login';
+  } else if (role === 'employee') {
+    fileToServe = 'EmployeeApp';
+  } else {
+    fileToServe = 'index';
+  }
+
+  return HtmlService.createTemplateFromFile(fileToServe)
     .evaluate()
     .setTitle('Restaurant Management System')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
@@ -261,9 +273,9 @@ function initializeProducts() {
 // Initialize default employees
 function initializeEmployees() {
   const employees = [
-    {name: 'Admin User', email: Session.getEffectiveUser().getEmail(), role: 'admin', hourly_rate: 0},
-    {name: 'Manager', email: 'manager@restaurant.com', role: 'manager', hourly_rate: 25},
-    {name: 'Staff Member', email: 'staff@restaurant.com', role: 'employee', hourly_rate: 15}
+    {name: 'Admin User', email: Session.getEffectiveUser().getEmail(), role: 'admin', hourly_rate: 0, pin: '1111'},
+    {name: 'Manager', email: 'manager@restaurant.com', role: 'manager', hourly_rate: 25, pin: '2222'},
+    {name: 'Staff Member', email: 'staff@restaurant.com', role: 'employee', hourly_rate: 15, pin: '3333'}
   ];
   
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Employees');
@@ -271,8 +283,17 @@ function initializeEmployees() {
   employees.forEach(emp => {
     const id = Utilities.getUuid();
     const row = [
-      id, emp.name, emp.email, '', emp.role, emp.hourly_rate, new Date(),
-      true, new Date(), new Date()
+      id,
+      emp.name,
+      emp.email,
+      hashPin(emp.pin),
+      '',
+      emp.role,
+      emp.hourly_rate,
+      new Date(),
+      true,
+      new Date(),
+      new Date()
     ];
     sheet.appendRow(row);
   });
@@ -424,6 +445,42 @@ function validateManagementPin(inputPin) {
     console.log('PIN validation error:', error);
     return false;
   }
+}
+
+// Hash a PIN using SHA-256 and return Base64 string
+function hashPin(pin) {
+  var digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(pin));
+  return Utilities.base64Encode(digest);
+}
+
+// Authenticate employee credentials and cache role on success
+function authenticateUser(email, pin) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('Employees');
+  if (!sheet) return {success: false};
+
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0];
+  var emailIdx = headers.indexOf('email');
+  var pinIdx = headers.indexOf('pin_hash');
+  var roleIdx = headers.indexOf('role');
+
+  var hashed = hashPin(pin);
+
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][emailIdx] == email && data[i][pinIdx] == hashed) {
+      var role = data[i][roleIdx];
+      CacheService.getUserCache().put('userRole', role, 21600);
+      return {success: true, role: role};
+    }
+  }
+  return {success: false};
+}
+
+// Clear cached role for sign out
+function logoutUser() {
+  CacheService.getUserCache().remove('userRole');
+  return {success: true};
 }
 
 // NEW: Check if entry exists for given date
