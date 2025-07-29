@@ -109,7 +109,7 @@ const REQUIRED_SHEETS = {
   // Employee Management
   Employees: {
     requiredHeaders: [
-      'id', 'name', 'email', 'phone', 'role', 'hourly_rate', 'hire_date',
+      'id', 'name', 'email', 'pin_hash', 'phone', 'role', 'hourly_rate', 'hire_date',
       'active', 'created_at', 'updated_at'
     ]
   },
@@ -172,6 +172,9 @@ function initializeDatabase() {
       sheet.autoResizeColumns(1, config.requiredHeaders.length);
     }
   });
+
+  // Ensure Employees sheet structure is up to date
+  ensureEmployeeSheetStructure();
   
   // Initialize default data if new database
   if (isNewDatabase) {
@@ -267,11 +270,11 @@ function initializeEmployees() {
   ];
   
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Employees');
-  
+
   employees.forEach(emp => {
     const id = Utilities.getUuid();
     const row = [
-      id, emp.name, emp.email, '', emp.role, emp.hourly_rate, new Date(),
+      id, emp.name, emp.email, '', '', emp.role, emp.hourly_rate, new Date(),
       true, new Date(), new Date()
     ];
     sheet.appendRow(row);
@@ -732,6 +735,36 @@ function parseInputDate(date) {
 
   // Fallback to default Date parsing
   return new Date(date);
+}
+
+// Ensure the Employees sheet contains a pin_hash column
+function ensureEmployeeSheetStructure() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Employees');
+  if (!sheet) return;
+
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const emailIdx = headers.indexOf('email');
+  const pinHashIdx = headers.indexOf('pin_hash');
+
+  if (pinHashIdx === -1 && emailIdx !== -1) {
+    sheet.insertColumnAfter(emailIdx + 1);
+    sheet.getRange(1, emailIdx + 2).setValue('pin_hash');
+
+    const pinIdx = headers.indexOf('pin');
+    const lastRow = sheet.getLastRow();
+    if (pinIdx !== -1 && lastRow > 1) {
+      const pinValues = sheet.getRange(2, pinIdx + 1, lastRow - 1).getValues();
+      const hashed = pinValues.map(r => [r[0] ? hashString(r[0]) : '']);
+      sheet.getRange(2, emailIdx + 2, lastRow - 1).setValues(hashed);
+    }
+  }
+}
+
+// Simple SHA256 hashing helper
+function hashString(value) {
+  if (!value) return '';
+  const raw = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(value));
+  return raw.map(b => ('0' + (b & 0xFF).toString(16)).slice(-2)).join('');
 }
 
 function generateDailyReport(date) {
