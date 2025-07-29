@@ -1,0 +1,529 @@
+<script type="text/babel">
+
+// Create global context
+window.AppContext = React.createContext();
+
+// Navigation Component
+function Navigation({ activeTab, onTabChange }) {
+    const tabs = [
+        { id: 'home', label: 'Dashboard', icon: '🏠' },
+        { id: 'daily_entry', label: 'Daily Entry', icon: '📝' },
+        { id: 'management', label: 'Management', icon: '📊' },
+        { id: 'orders', label: 'Orders', icon: '🛒' },
+        { id: 'menu', label: 'Menu', icon: '📋' },
+        { id: 'ingredients', label: 'Ingredients', icon: '🥬' },
+        { id: 'inventory', label: 'Inventory', icon: '📦' },
+        { id: 'suppliers', label: 'Suppliers', icon: '🚛' },
+        { id: 'employees', label: 'Staff', icon: '👥' },
+        { id: 'reports', label: 'Reports', icon: '📈' }
+    ];
+
+    return (
+        <nav className="bg-white shadow-sm sticky top-0 z-10 border-b border-gray-200">
+            <div className="container mx-auto px-4 overflow-x-auto">
+                <div className="flex space-x-6">
+                    {tabs.map(tab => (
+                        <button
+                            key={tab.id}
+                            onClick={() => onTabChange(tab.id)}
+                            className={`flex items-center gap-2 px-4 py-4 text-sm font-medium border-b-2 transition-all duration-200 ${
+                                activeTab === tab.id
+                                    ? 'text-olive-600 border-olive-600 bg-olive-50'
+                                    : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300 hover:bg-gray-50'
+                            }`}
+                        >
+                            <span>{tab.icon}</span>
+                            <span className="whitespace-nowrap">{tab.label}</span>
+                        </button>
+                    ))}
+                </div>
+            </div>
+        </nav>
+    );
+}
+
+// Home Tab Dashboard
+function HomeTab({ onTabChange }) {
+    const { state } = React.useContext(window.AppContext);
+    const { data } = state;
+
+    // Calculate today's metrics - FIXED: Removed optional chaining
+    const today = new Date().toDateString();
+    const todayOrders = (data.orders && data.orders.filter) ? data.orders.filter(order => {
+        const orderDate = new Date(order.order_date);
+        return orderDate.toDateString() === today;
+    }) : [];
+
+    const todayRevenue = todayOrders.reduce((sum, order) => sum + (order.total_amount || 0), 0);
+    const averageOrderValue = todayOrders.length > 0 ? todayRevenue / todayOrders.length : 0;
+    
+    const activeEmployees = (data.employees && data.employees.filter) ? data.employees.filter(emp => emp.active === true).length : 0;
+
+    const lowStockItems = (data.ingredients && data.ingredients.filter) ? data.ingredients.filter(ingredient => 
+        ingredient.quantity <= ingredient.min_stock
+    ).length : 0;
+
+    const pendingOrders = todayOrders.filter(order => 
+        order.status === 'pending' || order.status === 'in_progress'
+    ).length || 0;
+
+    // Get today's shawarma data - FIXED: Removed optional chaining
+    const todayShawarma = (data.dailyShawarmaStack && data.dailyShawarmaStack.find) ? data.dailyShawarmaStack.find(stack => 
+        new Date(stack.date).toDateString() === today
+    ) : null;
+
+    // Get today's sales data - FIXED: Removed optional chaining
+    const todaySales = (data.dailySales && data.dailySales.find) ? data.dailySales.find(sales => 
+        new Date(sales.sales_date).toDateString() === today
+    ) : null;
+
+    return (
+        <div className="space-y-6">
+            <div className="flex justify-between items-center">
+                <div>
+                    <h2 className="text-3xl font-bold text-gray-800">Restaurant Dashboard</h2>
+                    <p className="text-gray-600">
+                        {new Date().toLocaleDateString('en-US', { 
+                            weekday: 'long', 
+                            year: 'numeric', 
+                            month: 'long', 
+                            day: 'numeric' 
+                        })}
+                    </p>
+                </div>
+                <div className="text-right">
+                    <p className="text-sm text-gray-500">Last updated</p>
+                    <p className="text-sm font-medium">{new Date().toLocaleTimeString()}</p>
+                </div>
+            </div>
+
+            {/* Key Performance Indicators */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500">
+                    <div className="flex items-center">
+                        <div className="flex-1">
+                            <p className="text-sm font-medium text-gray-600">Today's Revenue</p>
+                            <p className="text-2xl font-bold text-blue-600">{todayRevenue.toFixed(2)} QAR</p>
+                            <p className="text-xs text-gray-500">{todayOrders.length} orders</p>
+                        </div>
+                        <div className="text-3xl text-blue-500">💰</div>
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500">
+                    <div className="flex items-center">
+                        <div className="flex-1">
+                            <p className="text-sm font-medium text-gray-600">Food Cost %</p>
+                            <p className={`text-2xl font-bold ${
+                                (todaySales && todaySales.food_cost_percentage > 25) ? 'text-red-600' : 'text-green-600'
+                            }`}>
+                                {(todaySales && todaySales.food_cost_percentage) ? todaySales.food_cost_percentage.toFixed(1) : 'N/A'}%
+                            </p>
+                            <p className="text-xs text-gray-500">Target: &lt; 25%</p>
+                        </div>
+                        <div className="text-3xl text-green-500">📊</div>
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-yellow-500">
+                    <div className="flex items-center">
+                        <div className="flex-1">
+                            <p className="text-sm font-medium text-gray-600">Shawarma Waste</p>
+                            <p className={`text-2xl font-bold ${
+                                !todayShawarma ? 'text-gray-400' :
+                                todayShawarma.waste_percentage > 28 ? 'text-red-600' : 
+                                todayShawarma.waste_percentage < 12 ? 'text-yellow-600' : 'text-green-600'
+                            }`}>
+                                {(todayShawarma && todayShawarma.waste_percentage) ? todayShawarma.waste_percentage.toFixed(1) : 'N/A'}%
+                            </p>
+                            <p className="text-xs text-gray-500">Range: 12-28%</p>
+                        </div>
+                        <div className="text-3xl text-yellow-500">🗑️</div>
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-purple-500">
+                    <div className="flex items-center">
+                        <div className="flex-1">
+                            <p className="text-sm font-medium text-gray-600">Average Order</p>
+                            <p className="text-2xl font-bold text-purple-600">{averageOrderValue.toFixed(2)} QAR</p>
+                            <p className="text-xs text-gray-500">Per order value</p>
+                        </div>
+                        <div className="text-3xl text-purple-500">🛒</div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Status Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className={`bg-white rounded-lg shadow-md p-6 border-l-4 ${
+                    pendingOrders > 5 ? 'border-red-500' : pendingOrders > 2 ? 'border-yellow-500' : 'border-green-500'
+                }`}>
+                    <h3 className="font-semibold text-gray-800 mb-2">Kitchen Status</h3>
+                    <p className={`text-3xl font-bold mb-2 ${
+                        pendingOrders > 5 ? 'text-red-600' : pendingOrders > 2 ? 'text-yellow-600' : 'text-green-600'
+                    }`}>
+                        {pendingOrders}
+                    </p>
+                    <p className="text-sm text-gray-600">Pending orders</p>
+                    <div className="mt-3">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            pendingOrders > 5 ? 'bg-red-100 text-red-800' : 
+                            pendingOrders > 2 ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'
+                        }`}>
+                            {pendingOrders > 5 ? 'Busy' : pendingOrders > 2 ? 'Moderate' : 'Normal'}
+                        </span>
+                    </div>
+                </div>
+                
+                <div className={`bg-white rounded-lg shadow-md p-6 border-l-4 ${
+                    lowStockItems > 3 ? 'border-red-500' : lowStockItems > 0 ? 'border-yellow-500' : 'border-green-500'
+                }`}>
+                    <h3 className="font-semibold text-gray-800 mb-2">Inventory Alert</h3>
+                    <p className={`text-3xl font-bold mb-2 ${
+                        lowStockItems > 3 ? 'text-red-600' : lowStockItems > 0 ? 'text-yellow-600' : 'text-green-600'
+                    }`}>
+                        {lowStockItems}
+                    </p>
+                    <p className="text-sm text-gray-600">Low stock items</p>
+                    <div className="mt-3">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            lowStockItems > 3 ? 'bg-red-100 text-red-800' : 
+                            lowStockItems > 0 ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'
+                        }`}>
+                            {lowStockItems > 3 ? 'Critical' : lowStockItems > 0 ? 'Monitor' : 'Good'}
+                        </span>
+                    </div>
+                </div>
+                
+                <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500">
+                    <h3 className="font-semibold text-gray-800 mb-2">Staff Status</h3>
+                    <p className="text-3xl font-bold text-blue-600 mb-2">{activeEmployees}</p>
+                    <p className="text-sm text-gray-600">Active employees</p>
+                    <div className="mt-3">
+                        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                            Available
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Quick Actions</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <button 
+                        onClick={() => onTabChange('daily_entry')}
+                        className="bg-olive-600 text-white px-6 py-3 rounded-lg hover:bg-olive-700 transition-colors flex items-center gap-2"
+                    >
+                        <span>📝</span>
+                        <span>Daily Entry</span>
+                    </button>
+                    <button 
+                        onClick={() => onTabChange('management')}
+                        className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                    >
+                        <span>📊</span>
+                        <span>Analytics</span>
+                    </button>
+                    <button 
+                        onClick={() => onTabChange('orders')}
+                        className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+                    >
+                        <span>🛒</span>
+                        <span>Manual Orders</span>
+                    </button>
+                    <button 
+                        onClick={() => onTabChange('inventory')}
+                        className="bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
+                    >
+                        <span>📦</span>
+                        <span>Check Inventory</span>
+                    </button>
+                </div>
+            </div>
+
+            {/* Recent Activity & Alerts */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-white rounded-lg shadow-md p-6">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Recent Orders</h3>
+                    <div className="space-y-3">
+                        {todayOrders.slice(0, 5).map(order => (
+                            <div key={order.id} className="flex justify-between items-center border-b pb-2">
+                                <div>
+                                    <p className="font-medium">Order #{order.order_number}</p>
+                                    <p className="text-sm text-gray-600">{order.customer_name || 'Walk-in'}</p>
+                                    <p className="text-xs text-gray-500">{new Date(order.order_time).toLocaleTimeString()}</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="font-medium">{order.total_amount} QAR</p>
+                                    <span className={`text-xs px-2 py-1 rounded-full ${
+                                        order.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                        order.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
+                                        order.status === 'pending' ? 'bg-blue-100 text-blue-800' :
+                                        'bg-gray-100 text-gray-800'
+                                    }`}>
+                                        {order.status}
+                                    </span>
+                                </div>
+                            </div>
+                        ))}
+                        {todayOrders.length === 0 && (
+                            <p className="text-gray-500 text-center py-4">No orders today yet</p>
+                        )}
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-lg shadow-md p-6">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Today's Highlights</h3>
+                    <div className="space-y-3">
+                        {todayShawarma && (
+                            <div className="p-3 bg-blue-50 rounded-lg">
+                                <p className="font-medium text-blue-800">Shawarma Performance</p>
+                                <p className="text-sm text-blue-600">
+                                    Profit: {(todayShawarma.profit_per_kg) ? todayShawarma.profit_per_kg.toFixed(2) : 'N/A'} QAR/kg | 
+                                    Waste: {(todayShawarma.waste_percentage) ? todayShawarma.waste_percentage.toFixed(1) : 'N/A'}%
+                                </p>
+                            </div>
+                        )}
+                        
+                        {todaySales && (
+                            <div className="p-3 bg-green-50 rounded-lg">
+                                <p className="font-medium text-green-800">Food Cost Control</p>
+                                <p className="text-sm text-green-600">
+                                    Food Cost: {(todaySales.food_cost_percentage) ? todaySales.food_cost_percentage.toFixed(1) : 'N/A'}% 
+                                    {todaySales.food_cost_percentage < 25 ? ' (Excellent!)' : ' (Monitor)'}
+                                </p>
+                            </div>
+                        )}
+                        
+                        {lowStockItems > 0 && (
+                            <div className="p-3 bg-yellow-50 rounded-lg">
+                                <p className="font-medium text-yellow-800">Inventory Alert</p>
+                                <p className="text-sm text-yellow-600">
+                                    {lowStockItems} items need restocking
+                                </p>
+                            </div>
+                        )}
+                        
+                        {lowStockItems === 0 && todayOrders.length > 0 && (
+                            <div className="p-3 bg-green-50 rounded-lg">
+                                <p className="font-medium text-green-800">All Systems Green</p>
+                                <p className="text-sm text-green-600">
+                                    Operations running smoothly today!
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// Placeholder tabs for future development
+function OrdersTab() {
+    return (
+        <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-xl font-semibold mb-4">Orders Management</h2>
+            <p className="text-gray-600">Manual order entry and management coming soon...</p>
+        </div>
+    );
+}
+
+function MenuTab() {
+    return (
+        <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-xl font-semibold mb-4">Menu Management</h2>
+            <p className="text-gray-600">Menu item and pricing management coming soon...</p>
+        </div>
+    );
+}
+
+function IngredientsTab() {
+    return (
+        <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-xl font-semibold mb-4">Ingredients Management</h2>
+            <p className="text-gray-600">Ingredient catalog and cost management coming soon...</p>
+        </div>
+    );
+}
+
+function InventoryTab() {
+    return (
+        <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-xl font-semibold mb-4">Inventory Management</h2>
+            <p className="text-gray-600">Stock levels and inventory tracking coming soon...</p>
+        </div>
+    );
+}
+
+function SuppliersTab() {
+    return (
+        <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-xl font-semibold mb-4">Suppliers Management</h2>
+            <p className="text-gray-600">Supplier contacts and purchase management coming soon...</p>
+        </div>
+    );
+}
+
+function EmployeesTab() {
+    return (
+        <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-xl font-semibold mb-4">Staff Management</h2>
+            <p className="text-gray-600">Employee records and shift management coming soon...</p>
+        </div>
+    );
+}
+
+function ReportsTab() {
+    return (
+        <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-xl font-semibold mb-4">Reports</h2>
+            <p className="text-gray-600">Detailed reports and analytics coming soon...</p>
+        </div>
+    );
+}
+
+// Main App Component
+function App() {
+    const [state, setState] = React.useState({
+        activeTab: 'home',
+        loading: true,
+        initialized: false,
+        error: null,
+        loadingMessage: 'Initializing restaurant management system...',
+        data: {
+            ingredients: [],
+            products: [],
+            recipes: [],
+            orders: [],
+            orderItems: [],
+            employees: [],
+            suppliers: [],
+            dailyShawarmaStack: [],
+            dailySales: [],
+            dailyInventoryCount: [],
+            dailyProductSales: []
+        }
+    });
+
+    const loadData = () => {
+        setState(prev => ({
+            ...prev,
+            loading: true,
+            loadingMessage: 'Loading restaurant data...'
+        }));
+
+        google.script.run
+            .withSuccessHandler(response => {
+                try {
+                    const newData = JSON.parse(response);
+                    setState(prev => ({
+                        ...prev,
+                        loading: false,
+                        initialized: true,
+                        loadingMessage: '',
+                        data: newData
+                    }));
+                } catch (error) {
+                    console.error('Data parsing error:', error);
+                    setState(prev => ({
+                        ...prev,
+                        loading: false,
+                        error: 'Failed to parse restaurant data'
+                    }));
+                }
+            })
+            .withFailureHandler(error => {
+                setState(prev => ({
+                    ...prev,
+                    loading: false,
+                    error: error.message
+                }));
+            })
+            .getData();
+    };
+
+    React.useEffect(() => {
+        loadData();
+    }, []);
+
+    if (state.loading) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-olive-50 to-olive-100">
+                <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-olive-600 mb-4"></div>
+                <div className="text-olive-600 text-lg">{state.loadingMessage}</div>
+            </div>
+        );
+    }
+
+    if (state.error) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-red-50">
+                <div className="text-center">
+                    <h1 className="text-2xl font-bold text-red-800 mb-4">Error</h1>
+                    <p className="text-red-600 mb-4">{state.error}</p>
+                    <button 
+                        onClick={loadData}
+                        className="bg-olive-600 text-white px-6 py-2 rounded hover:bg-olive-700"
+                    >
+                        Retry
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <window.AppContext.Provider value={{ state, setState }}>
+            <div className="min-h-screen bg-gradient-to-br from-olive-50 to-olive-100">
+                <header className="bg-white shadow-sm">
+                    <div className="container mx-auto px-4 py-4">
+                        <h1 className="text-2xl font-bold text-olive-800">Restaurant Management System</h1>
+                        <p className="text-olive-600">Complete restaurant operations control</p>
+                    </div>
+                </header>
+
+                <Navigation 
+                    activeTab={state.activeTab} 
+                    onTabChange={(tab) => setState(prev => ({ ...prev, activeTab: tab }))} 
+                />
+
+                <main className="container mx-auto px-4 py-8">
+                    {!state.initialized ? (
+                        <div className="text-center py-12">
+                            <p className="text-gray-500">Initializing restaurant system...</p>
+                        </div>
+                    ) : (
+                        <div>
+                            {state.activeTab === 'home' && <HomeTab onTabChange={(tab) => setState(prev => ({ ...prev, activeTab: tab }))} />}
+                            {state.activeTab === 'daily_entry' && <DailyEntryTab />}
+                            {state.activeTab === 'management' && <ManagementDashboard />}
+                            {state.activeTab === 'orders' && <OrdersTab />}
+                            {state.activeTab === 'menu' && <MenuTab />}
+                            {state.activeTab === 'ingredients' && <IngredientsTab />}
+                            {state.activeTab === 'inventory' && <InventoryTab />}
+                            {state.activeTab === 'suppliers' && <SuppliersTab />}
+                            {state.activeTab === 'employees' && <EmployeesTab />}
+                            {state.activeTab === 'reports' && <ReportsTab />}
+                        </div>
+                    )}
+                </main>
+            </div>
+        </window.AppContext.Provider>
+    );
+}
+
+// Initialize the app
+function initializeRestaurantApp() {
+    ReactDOM.render(
+        <App />,
+        document.getElementById('root')
+    );
+}
+
+// Make the initialization function available globally
+window.initializeRestaurantApp = initializeRestaurantApp;
+
+</script>

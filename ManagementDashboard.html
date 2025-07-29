@@ -1,0 +1,771 @@
+<script type="text/babel">
+function ManagementDashboard() {
+    const { state } = React.useContext(window.AppContext);
+    const [dashboardData, setDashboardData] = React.useState(null);
+    const [selectedPeriod, setSelectedPeriod] = React.useState('today');
+    const [customDate, setCustomDate] = React.useState('');
+    const [alerts, setAlerts] = React.useState([]);
+    const [loading, setLoading] = React.useState(true);
+    const [cardLoading, setCardLoading] = React.useState({
+        metrics: false,
+        shawarma: false,
+        sales: false,
+        inventory: false
+    });
+    const [showDataStatus, setShowDataStatus] = React.useState(false);
+    const [showDebugData, setShowDebugData] = React.useState(false);
+
+    React.useEffect(() => {
+        loadDashboardData();
+    }, [selectedPeriod, customDate]);
+
+    const loadDashboardData = async () => {
+        // Only show card loading for refreshes, not initial load
+        if (dashboardData) {
+            setCardLoading({
+                metrics: true,
+                shawarma: true,
+                sales: true,
+                inventory: true
+            });
+        } else {
+            setLoading(true);
+        }
+
+        try {
+            let dateParam = null;
+            
+            console.log("Selected period:", selectedPeriod);
+            console.log("Custom date:", customDate);
+            
+            if (selectedPeriod === 'custom' && customDate) {
+                dateParam = new Date(customDate).toDateString();
+            } else if (selectedPeriod === 'today') {
+                dateParam = new Date().toDateString();
+            } else if (selectedPeriod === 'yesterday') {
+                const yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+                dateParam = yesterday.toDateString();
+            } else if (selectedPeriod === 'week') {
+                // For week, we'll use today's date but the backend can handle week logic
+                dateParam = new Date().toDateString();
+            } else if (selectedPeriod === 'month') {
+                // For month, we'll use today's date but the backend can handle month logic
+                dateParam = new Date().toDateString();
+            }
+            
+            console.log("Requesting data for date:", dateParam);
+            
+            const response = await google.script.run
+                .withSuccessHandler(data => {
+                    console.log("Received data:", data);
+                    try {
+                        const parsedData = JSON.parse(data);
+                        setDashboardData(parsedData);
+                        generateAlerts(parsedData);
+                        
+                        // Stagger card loading completion for smooth UX
+                        setTimeout(() => setCardLoading(prev => ({ ...prev, metrics: false })), 200);
+                        setTimeout(() => setCardLoading(prev => ({ ...prev, shawarma: false })), 400);
+                        setTimeout(() => setCardLoading(prev => ({ ...prev, sales: false })), 600);
+                        setTimeout(() => setCardLoading(prev => ({ ...prev, inventory: false })), 800);
+                        
+                        setLoading(false);
+                    } catch (parseError) {
+                        console.error('Error parsing data:', parseError);
+                        setLoading(false);
+                        setCardLoading({ metrics: false, shawarma: false, sales: false, inventory: false });
+                    }
+                })
+                .withFailureHandler(error => {
+                    console.error('Error loading dashboard:', error);
+                    setLoading(false);
+                    setCardLoading({ metrics: false, shawarma: false, sales: false, inventory: false });
+                })
+                .generateDailyReport(dateParam);
+        } catch (error) {
+            console.error('Dashboard error:', error);
+            setLoading(false);
+            setCardLoading({ metrics: false, shawarma: false, sales: false, inventory: false });
+        }
+    };
+
+    const generateAlerts = (data) => {
+        const newAlerts = [];
+        
+        // Shawarma waste alerts
+        if (data.shawarma && data.shawarma.waste_percentage) {
+            if (data.shawarma.waste_percentage > 28) {
+                newAlerts.push({
+                    type: 'danger',
+                    icon: '⚠️',
+                    title: 'High Shawarma Waste',
+                    message: `Waste is ${data.shawarma.waste_percentage.toFixed(1)}% (target: <28%)`,
+                    action: 'Review cutting techniques and order timing'
+                });
+            } else if (data.shawarma.waste_percentage < 12) {
+                newAlerts.push({
+                    type: 'warning',
+                    icon: '🔍',
+                    title: 'Unusually Low Waste',
+                    message: `Waste is ${data.shawarma.waste_percentage.toFixed(1)}% (verify measurements)`,
+                    action: 'Double-check weight measurements'
+                });
+            }
+        }
+
+        // Staff meals alert
+        if (data.shawarma && data.shawarma.staff_meals_weight_kg > 0.4) {
+            newAlerts.push({
+                type: 'warning',
+                icon: '🍽️',
+                title: 'Staff Meals Over Limit',
+                message: `${data.shawarma.staff_meals_weight_kg}kg used (limit: 0.4kg)`,
+                action: 'Monitor staff meal portions'
+            });
+        }
+
+        // Food cost alerts
+        if (data.sales && data.sales.food_cost_percentage > 25) {
+            newAlerts.push({
+                type: 'danger',
+                icon: '💰',
+                title: 'High Food Cost %',
+                message: `Food cost is ${data.sales.food_cost_percentage.toFixed(1)}% (target: <25%)`,
+                action: 'Review portion sizes and waste'
+            });
+        }
+
+        // Profit per kg alerts
+        if (data.shawarma && data.shawarma.profit_per_kg < 5) {
+            newAlerts.push({
+                type: 'warning',
+                icon: '📉',
+                title: 'Low Shawarma Profitability',
+                message: `Profit per kg: ${data.shawarma.profit_per_kg.toFixed(2)} QAR`,
+                action: 'Review pricing and costs'
+            });
+        }
+
+        setAlerts(newAlerts);
+    };
+
+    const getAlertColor = (type) => {
+        switch (type) {
+            case 'danger': return 'border-red-500 bg-red-50 text-red-800';
+            case 'warning': return 'border-yellow-500 bg-yellow-50 text-yellow-800';
+            case 'success': return 'border-green-500 bg-green-50 text-green-800';
+            default: return 'border-blue-500 bg-blue-50 text-blue-800';
+        }
+    };
+
+    const LoadingCard = ({ children, isLoading }) => {
+        if (isLoading) {
+            return (
+                <div className="bg-white rounded-lg shadow p-6 animate-pulse">
+                    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                    <div className="h-8 bg-gray-200 rounded w-1/2 mb-2"></div>
+                    <div className="h-3 bg-gray-200 rounded w-2/3"></div>
+                </div>
+            );
+        }
+        return children;
+    };
+
+    const SectionLoadingPlaceholder = ({ isLoading, children }) => {
+        if (isLoading) {
+            return (
+                <div className="bg-white rounded-lg shadow p-6 animate-pulse">
+                    <div className="h-6 bg-gray-200 rounded w-1/3 mb-4"></div>
+                    <div className="space-y-3">
+                        <div className="h-4 bg-gray-200 rounded"></div>
+                        <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+                        <div className="h-4 bg-gray-200 rounded w-4/6"></div>
+                    </div>
+                </div>
+            );
+        }
+        return children;
+    };
+
+    // Only show initial loading for first load
+    if (loading && !dashboardData) {
+        return (
+            <div className="flex items-center justify-center min-h-64">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-olive-600 mb-4 mx-auto"></div>
+                    <p className="text-olive-600">Loading management dashboard...</p>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-6">
+            {/* Header */}
+            <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex justify-between items-center">
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-800">Management Dashboard</h1>
+                        <p className="text-gray-600">Real-time restaurant performance analytics</p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        {/* Period Selector */}
+                        <select
+                            value={selectedPeriod}
+                            onChange={e => {
+                                setSelectedPeriod(e.target.value);
+                                if (e.target.value !== 'custom') {
+                                    setCustomDate('');
+                                }
+                            }}
+                            className="px-3 py-2 border rounded focus:ring-2 focus:ring-olive-500"
+                        >
+                            <option value="today">Today</option>
+                            <option value="yesterday">Yesterday</option>
+                            <option value="week">This Week</option>
+                            <option value="month">This Month</option>
+                            <option value="custom">Custom Date</option>
+                        </select>
+                        
+                        {/* Custom Date Input */}
+                        {selectedPeriod === 'custom' && (
+                            <input
+                                type="date"
+                                value={customDate}
+                                onChange={e => setCustomDate(e.target.value)}
+                                className="px-3 py-2 border rounded focus:ring-2 focus:ring-olive-500"
+                            />
+                        )}
+                        
+                        <button
+                            onClick={loadDashboardData}
+                            disabled={cardLoading.metrics || cardLoading.shawarma || cardLoading.sales || cardLoading.inventory}
+                            className="bg-olive-600 text-white px-4 py-2 rounded hover:bg-olive-700 disabled:opacity-50 flex items-center gap-2"
+                        >
+                            {(cardLoading.metrics || cardLoading.shawarma || cardLoading.sales || cardLoading.inventory) && (
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            )}
+                            Refresh
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Alerts Section */}
+            {alerts.length > 0 && (
+                <div className="space-y-3">
+                    <h2 className="text-lg font-semibold text-gray-800">🚨 Active Alerts</h2>
+                    {alerts.map((alert, index) => (
+                        <div key={index} className={`border-l-4 p-4 rounded-lg ${getAlertColor(alert.type)}`}>
+                            <div className="flex items-start gap-3">
+                                <span className="text-xl">{alert.icon}</span>
+                                <div className="flex-1">
+                                    <h3 className="font-semibold">{alert.title}</h3>
+                                    <p className="text-sm mt-1">{alert.message}</p>
+                                    <p className="text-xs mt-2 font-medium">Action: {alert.action}</p>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* Key Metrics with individual loading */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {/* Shawarma Profitability */}
+                <LoadingCard isLoading={cardLoading.metrics}>
+                    <div className="bg-white rounded-lg shadow p-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-gray-600">Shawarma Profit/kg</p>
+                                <p className="text-2xl font-bold text-green-600">
+                                    {dashboardData && dashboardData.shawarma && dashboardData.shawarma.profit_per_kg ? 
+                                        `${dashboardData.shawarma.profit_per_kg.toFixed(2)} QAR` : 'N/A'}
+                                </p>
+                            </div>
+                            <div className="text-3xl">🥙</div>
+                        </div>
+                        <div className="mt-4 text-sm text-gray-500">
+                            Revenue/kg: {dashboardData && dashboardData.shawarma && dashboardData.shawarma.revenue_per_kg ? 
+                                dashboardData.shawarma.revenue_per_kg.toFixed(2) : 'N/A'} QAR
+                        </div>
+                    </div>
+                </LoadingCard>
+
+                {/* Food Cost Percentage */}
+                <LoadingCard isLoading={cardLoading.metrics}>
+                    <div className="bg-white rounded-lg shadow p-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-gray-600">Food Cost %</p>
+                                <p className={`text-2xl font-bold ${
+                                    ((dashboardData && dashboardData.sales && dashboardData.sales.food_cost_percentage) || 0) > 25 ? 'text-red-600' : 'text-green-600'
+                                }`}>
+                                    {dashboardData && dashboardData.sales && dashboardData.sales.food_cost_percentage ? 
+                                        `${dashboardData.sales.food_cost_percentage.toFixed(1)}%` : 'N/A'}
+                                </p>
+                            </div>
+                            <div className="text-3xl">💰</div>
+                        </div>
+                        <div className="mt-4 text-sm text-gray-500">
+                            Target: &lt; 25%
+                        </div>
+                    </div>
+                </LoadingCard>
+
+                {/* Shawarma Waste */}
+                <LoadingCard isLoading={cardLoading.metrics}>
+                    <div className="bg-white rounded-lg shadow p-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-gray-600">Shawarma Waste</p>
+                                <p className={`text-2xl font-bold ${
+                                    !(dashboardData && dashboardData.shawarma && dashboardData.shawarma.waste_percentage) ? 'text-gray-400' :
+                                    dashboardData.shawarma.waste_percentage > 28 ? 'text-red-600' : 
+                                    dashboardData.shawarma.waste_percentage < 12 ? 'text-yellow-600' : 'text-green-600'
+                                }`}>
+                                    {dashboardData && dashboardData.shawarma && dashboardData.shawarma.waste_percentage ? 
+                                        `${dashboardData.shawarma.waste_percentage.toFixed(1)}%` : 'N/A'}
+                                </p>
+                            </div>
+                            <div className="text-3xl">🗑️</div>
+                        </div>
+                        <div className="mt-4 text-sm text-gray-500">
+                            Range: 12-28%
+                        </div>
+                    </div>
+                </LoadingCard>
+
+                {/* Daily Revenue */}
+                <LoadingCard isLoading={cardLoading.metrics}>
+                    <div className="bg-white rounded-lg shadow p-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-gray-600">Daily Revenue</p>
+                                <p className="text-2xl font-bold text-blue-600">
+                                    {dashboardData && dashboardData.sales && dashboardData.sales.total_revenue ? 
+                                        `${dashboardData.sales.total_revenue.toFixed(2)} QAR` : 'N/A'}
+                                </p>
+                            </div>
+                            <div className="text-3xl">📈</div>
+                        </div>
+                        <div className="mt-4 text-sm text-gray-500">
+                            Orders: {dashboardData && dashboardData.sales && dashboardData.sales.total_orders ? 
+                                dashboardData.sales.total_orders : 'N/A'}
+                        </div>
+                    </div>
+                </LoadingCard>
+            </div>
+
+            {/* Detailed Analytics with individual loading */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Shawarma Analytics */}
+                <SectionLoadingPlaceholder isLoading={cardLoading.shawarma}>
+                    <div className="bg-white rounded-lg shadow p-6">
+                        <h3 className="text-lg font-semibold text-gray-800 mb-4">🥙 Shawarma Stack Analysis</h3>
+                        {dashboardData && dashboardData.shawarma ? (
+                            <div className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <span className="text-gray-600">Starting Weight:</span>
+                                        <p className="font-medium">{dashboardData.shawarma.starting_weight_kg ? 
+                                            dashboardData.shawarma.starting_weight_kg.toFixed(3) : 'N/A'} kg</p>
+                                    </div>
+                                    <div>
+                                        <span className="text-gray-600">Remaining Weight:</span>
+                                        <p className="font-medium">{dashboardData.shawarma.remaining_weight_kg ? 
+                                            dashboardData.shawarma.remaining_weight_kg.toFixed(3) : 'N/A'} kg</p>
+                                    </div>
+                                    <div>
+                                        <span className="text-gray-600">Orders Weight:</span>
+                                        <p className="font-medium">{dashboardData.shawarma.orders_weight_kg ? 
+                                            dashboardData.shawarma.orders_weight_kg.toFixed(3) : 'N/A'} kg</p>
+                                    </div>
+                                    <div>
+                                        <span className="text-gray-600">Shaving Weight:</span>
+                                        <p className="font-medium">{dashboardData.shawarma.shaving_weight_kg ? 
+                                            dashboardData.shawarma.shaving_weight_kg.toFixed(3) : 'N/A'} kg</p>
+                                    </div>
+                                    <div>
+                                        <span className="text-gray-600">Staff Meals:</span>
+                                        <p className={`font-medium ${(dashboardData.shawarma.staff_meals_weight_kg || 0) > 0.4 ? 'text-red-600' : 'text-green-600'}`}>
+                                            {dashboardData.shawarma.staff_meals_weight_kg ? 
+                                                dashboardData.shawarma.staff_meals_weight_kg.toFixed(3) : '0.000'} kg
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <span className="text-gray-600">Waste Weight:</span>
+                                        <p className="font-medium">{dashboardData.shawarma.waste_weight_kg ? 
+                                            dashboardData.shawarma.waste_weight_kg.toFixed(3) : 'N/A'} kg</p>
+                                    </div>
+                                </div>
+                                
+                                <div className="border-t pt-4">
+                                    <h4 className="font-medium text-gray-700 mb-2">Profitability Metrics</h4>
+                                    <div className="grid grid-cols-2 gap-4 text-sm">
+                                        <div>
+                                            <span className="text-gray-600">Revenue per kg:</span>
+                                            <p className="font-medium text-green-600">{dashboardData.shawarma.revenue_per_kg ? 
+                                                dashboardData.shawarma.revenue_per_kg.toFixed(2) : 'N/A'} QAR</p>
+                                        </div>
+                                        <div>
+                                            <span className="text-gray-600">Cost per kg:</span>
+                                            <p className="font-medium">{dashboardData.shawarma.starting_weight_kg && dashboardData.shawarma.stack_cost_qar ? 
+                                                (dashboardData.shawarma.stack_cost_qar / dashboardData.shawarma.starting_weight_kg).toFixed(2) : 'N/A'} QAR</p>
+                                        </div>
+                                        <div>
+                                            <span className="text-gray-600">Profit per kg:</span>
+                                            <p className="font-medium text-green-600">{dashboardData.shawarma.profit_per_kg ? 
+                                                dashboardData.shawarma.profit_per_kg.toFixed(2) : 'N/A'} QAR</p>
+                                        </div>
+                                        <div>
+                                            <span className="text-gray-600">Total Stack Cost:</span>
+                                            <p className="font-medium">{dashboardData.shawarma.stack_cost_qar ? 
+                                                dashboardData.shawarma.stack_cost_qar.toFixed(2) : 'N/A'} QAR</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <p className="text-gray-500">No shawarma data available for selected period</p>
+                        )}
+                    </div>
+                </SectionLoadingPlaceholder>
+
+                {/* Sales Performance */}
+                <SectionLoadingPlaceholder isLoading={cardLoading.sales}>
+                    <div className="bg-white rounded-lg shadow p-6">
+                        <h3 className="text-lg font-semibold text-gray-800 mb-4">📊 Sales Performance</h3>
+                        {dashboardData && dashboardData.sales ? (
+                            <div className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <span className="text-gray-600">Total Revenue:</span>
+                                        <p className="font-medium text-blue-600">{dashboardData.sales.total_revenue ? 
+                                            dashboardData.sales.total_revenue.toFixed(2) : 'N/A'} QAR</p>
+                                    </div>
+                                    <div>
+                                        <span className="text-gray-600">Total Food Cost:</span>
+                                        <p className="font-medium">{dashboardData.sales.total_food_cost ? 
+                                            dashboardData.sales.total_food_cost.toFixed(2) : 'N/A'} QAR</p>
+                                    </div>
+                                    <div>
+                                        <span className="text-gray-600">Gross Profit:</span>
+                                        <p className="font-medium text-green-600">
+                                            {dashboardData.sales.total_revenue && dashboardData.sales.total_food_cost ? 
+                                                (dashboardData.sales.total_revenue - dashboardData.sales.total_food_cost).toFixed(2) : 'N/A'} QAR
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <span className="text-gray-600">Food Cost %:</span>
+                                        <p className={`font-medium ${(dashboardData.sales.food_cost_percentage || 0) > 25 ? 'text-red-600' : 'text-green-600'}`}>
+                                            {dashboardData.sales.food_cost_percentage ? 
+                                                dashboardData.sales.food_cost_percentage.toFixed(1) : 'N/A'}%
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <span className="text-gray-600">Total Orders:</span>
+                                        <p className="font-medium">{dashboardData.sales.total_orders || 'N/A'}</p>
+                                    </div>
+                                    <div>
+                                        <span className="text-gray-600">Average Order Value:</span>
+                                        <p className="font-medium">
+                                            {dashboardData.sales.total_orders && dashboardData.sales.total_revenue && dashboardData.sales.total_orders > 0 ? 
+                                                (dashboardData.sales.total_revenue / dashboardData.sales.total_orders).toFixed(2) : 'N/A'} QAR
+                                        </p>
+                                    </div>
+                                </div>
+                                
+                                <div className="border-t pt-4">
+                                    <h4 className="font-medium text-gray-700 mb-2">Performance Indicators</h4>
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-gray-600">Food Cost Performance:</span>
+                                            <span className={`text-sm font-medium px-2 py-1 rounded ${
+                                                (dashboardData.sales.food_cost_percentage || 0) < 20 ? 'bg-green-100 text-green-800' :
+                                                (dashboardData.sales.food_cost_percentage || 0) < 25 ? 'bg-yellow-100 text-yellow-800' :
+                                                'bg-red-100 text-red-800'
+                                            }`}>
+                                                {(dashboardData.sales.food_cost_percentage || 0) < 20 ? 'Excellent' :
+                                                 (dashboardData.sales.food_cost_percentage || 0) < 25 ? 'Good' : 'Needs Attention'}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-gray-600">Profit Margin:</span>
+                                            <span className="text-sm font-medium text-green-600">
+                                                {dashboardData.sales.food_cost_percentage ? 
+                                                    (100 - dashboardData.sales.food_cost_percentage).toFixed(1) : 'N/A'}%
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <p className="text-gray-500">No sales data available for selected period</p>
+                        )}
+                    </div>
+                </SectionLoadingPlaceholder>
+            </div>
+
+            {/* Inventory Overview */}
+            <SectionLoadingPlaceholder isLoading={cardLoading.inventory}>
+                <div className="bg-white rounded-lg shadow p-6">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4">📦 Inventory Overview</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {/* Raw Proteins */}
+                        <div>
+                            <h4 className="font-medium text-gray-700 mb-3">Raw Proteins</h4>
+                            <div className="space-y-2 text-sm">
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Chicken Shawarma:</span>
+                                    <span className="font-medium">{dashboardData && dashboardData.inventory && dashboardData.inventory.chicken_shawarma_remaining ? 
+                                        dashboardData.inventory.chicken_shawarma_remaining : 'N/A'} kg</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Chicken Breast:</span>
+                                    <span className="font-medium">{dashboardData && dashboardData.inventory && dashboardData.inventory.chicken_breast_remaining ? 
+                                        dashboardData.inventory.chicken_breast_remaining : 'N/A'} kg</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Steak:</span>
+                                    <span className="font-medium">{dashboardData && dashboardData.inventory && dashboardData.inventory.steak_remaining ? 
+                                        dashboardData.inventory.steak_remaining : 'N/A'} kg</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Bread */}
+                        <div>
+                            <h4 className="font-medium text-gray-700 mb-3">Bread</h4>
+                            <div className="space-y-2 text-sm">
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Saj Bread:</span>
+                                    <span className="font-medium">{dashboardData && dashboardData.inventory && dashboardData.inventory.saj_bread_remaining ? 
+                                        dashboardData.inventory.saj_bread_remaining : 'N/A'} pcs</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Bread Roll:</span>
+                                    <span className="font-medium">{dashboardData && dashboardData.inventory && dashboardData.inventory.bread_roll_remaining ? 
+                                        dashboardData.inventory.bread_roll_remaining : 'N/A'} pcs</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Pita Bread:</span>
+                                    <span className="font-medium">{dashboardData && dashboardData.inventory && dashboardData.inventory.pita_bread_remaining ? 
+                                        dashboardData.inventory.pita_bread_remaining : 'N/A'} pcs</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* High-Cost Items */}
+                        <div>
+                            <h4 className="font-medium text-gray-700 mb-3">High-Cost Items</h4>
+                            <div className="space-y-2 text-sm">
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Cream:</span>
+                                    <span className="font-medium">{dashboardData && dashboardData.inventory && dashboardData.inventory.cream_remaining ? 
+                                        dashboardData.inventory.cream_remaining : 'N/A'} kg</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Mayo:</span>
+                                    <span className="font-medium">{dashboardData && dashboardData.inventory && dashboardData.inventory.mayo_remaining ? 
+                                        dashboardData.inventory.mayo_remaining : 'N/A'} kg</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </SectionLoadingPlaceholder>
+
+            {/* Product Sales Breakdown */}
+            {dashboardData && dashboardData.productSales && dashboardData.productSales.length > 0 && (
+                <div className="bg-white rounded-lg shadow p-6">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4">📋 Product Sales Breakdown</h3>
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qty Sold</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Food Cost</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profit Margin</th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                                {dashboardData.productSales.map((product, index) => (
+                                    <tr key={index}>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                            {product.product_name}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            {product.quantity_sold}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            {product.total_revenue ? product.total_revenue.toFixed(2) : '0.00'} QAR
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            {product.total_cost ? product.total_cost.toFixed(2) : '0.00'} QAR
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                                (product.profit_margin || 0) > 75 ? 'bg-green-100 text-green-800' :
+                                                (product.profit_margin || 0) > 60 ? 'bg-yellow-100 text-yellow-800' :
+                                                'bg-red-100 text-red-800'
+                                            }`}>
+                                                {product.profit_margin ? product.profit_margin.toFixed(1) : '0.0'}%
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
+            {/* Recommended Actions */}
+            <div className="bg-white rounded-lg shadow p-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">✅ Recommended Actions</h3>
+                <div className="space-y-3">
+                    {alerts.length === 0 ? (
+                        <div className="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                            <span className="text-green-600 text-xl">✅</span>
+                            <div>
+                                <p className="font-medium text-green-800">All Systems Normal</p>
+                                <p className="text-sm text-green-600">No immediate actions required. Keep monitoring performance.</p>
+                            </div>
+                        </div>
+                    ) : (
+                        <div>
+                            {alerts.filter(alert => alert.type === 'danger').map((alert, index) => (
+                                <div key={`danger-${index}`} className="flex items-center gap-3 p-3 bg-red-50 border border-red-200 rounded-lg mb-3">
+                                    <span className="text-red-600 text-xl">🚨</span>
+                                    <div>
+                                        <p className="font-medium text-red-800">High Priority: {alert.title}</p>
+                                        <p className="text-sm text-red-600">{alert.action}</p>
+                                    </div>
+                                </div>
+                            ))}
+                            {alerts.filter(alert => alert.type === 'warning').map((alert, index) => (
+                                <div key={`warning-${index}`} className="flex items-center gap-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                    <span className="text-yellow-600 text-xl">⚠️</span>
+                                    <div>
+                                        <p className="font-medium text-yellow-800">Medium Priority: {alert.title}</p>
+                                        <p className="text-sm text-yellow-600">{alert.action}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Data Status Section - Collapsible */}
+            <div className="bg-white rounded-lg shadow">
+                <button
+                    onClick={() => setShowDataStatus(!showDataStatus)}
+                    className="w-full p-6 text-left flex justify-between items-center hover:bg-gray-50"
+                >
+                    <div>
+                        <h3 className="text-lg font-semibold text-gray-800">📊 Data Status & Information</h3>
+                        <p className="text-sm text-gray-600">View data availability and system information</p>
+                    </div>
+                    <div className={`transform transition-transform ${showDataStatus ? 'rotate-180' : ''}`}>
+                        <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </div>
+                </button>
+                
+                {showDataStatus && (
+                    <div className="px-6 pb-6 border-t">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                            {/* Data Availability */}
+                            <div>
+                                <h4 className="font-medium text-gray-700 mb-3">Data Availability</h4>
+                                <div className="space-y-2 text-sm">
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">Shawarma Data:</span>
+                                        <span className={`font-medium ${dashboardData && dashboardData.data_found && dashboardData.data_found.shawarma ? 'text-green-600' : 'text-red-600'}`}>
+                                            {dashboardData && dashboardData.data_found && dashboardData.data_found.shawarma ? 'Available' : 'Missing'}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">Sales Data:</span>
+                                        <span className={`font-medium ${dashboardData && dashboardData.data_found && dashboardData.data_found.sales ? 'text-green-600' : 'text-red-600'}`}>
+                                            {dashboardData && dashboardData.data_found && dashboardData.data_found.sales ? 'Available' : 'Missing'}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">Inventory Data:</span>
+                                        <span className={`font-medium ${dashboardData && dashboardData.data_found && dashboardData.data_found.rawProteins ? 'text-green-600' : 'text-red-600'}`}>
+                                            {dashboardData && dashboardData.data_found && dashboardData.data_found.rawProteins ? 'Available' : 'Missing'}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">Bread Data:</span>
+                                        <span className={`font-medium ${dashboardData && dashboardData.data_found && dashboardData.data_found.bread ? 'text-green-600' : 'text-red-600'}`}>
+                                            {dashboardData && dashboardData.data_found && dashboardData.data_found.bread ? 'Available' : 'Missing'}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Period Information */}
+                            <div>
+                                <h4 className="font-medium text-gray-700 mb-3">Period Information</h4>
+                                <div className="space-y-2 text-sm">
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">Selected Period:</span>
+                                        <span className="font-medium">{selectedPeriod === 'custom' ? 'Custom Date' : selectedPeriod.charAt(0).toUpperCase() + selectedPeriod.slice(1)}</span>
+                                    </div>
+                                    {customDate && (
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Custom Date:</span>
+                                            <span className="font-medium">{customDate}</span>
+                                        </div>
+                                    )}
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">Requested Date:</span>
+                                        <span className="font-medium">{dashboardData && dashboardData.requested_date ? dashboardData.requested_date : 'N/A'}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">Data Date:</span>
+                                        <span className="font-medium">{dashboardData && dashboardData.date ? dashboardData.date : 'N/A'}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Debug Data Toggle */}
+                        <div className="mt-6 border-t pt-4">
+                            <button
+                                onClick={() => setShowDebugData(!showDebugData)}
+                                className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800"
+                            >
+                                <span className={`transform transition-transform ${showDebugData ? 'rotate-90' : ''}`}>
+                                    ▶
+                                </span>
+                                View Debug Data (Raw JSON)
+                            </button>
+                            
+                            {showDebugData && (
+                                <div className="mt-3">
+                                    <div className="bg-gray-100 p-4 rounded-lg overflow-auto max-h-96">
+                                        <pre className="text-xs text-gray-800">
+                                            {JSON.stringify(dashboardData, null, 2)}
+                                        </pre>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+window.ManagementDashboard = ManagementDashboard;
+</script>

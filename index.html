@@ -1,0 +1,1525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Restaurant Management System</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        olive: {
+                            50: '#f7f8f0',
+                            100: '#eef0dc',
+                            200: '#dde2bd',
+                            300: '#c6ce94',
+                            400: '#b0ba70',
+                            500: '#9ca653',
+                            600: '#84a35a',
+                            700: '#6a7c47',
+                            800: '#56653c',
+                            900: '#4a5735',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- React -->
+     <!-- React -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <!-- Babel for JSX transpilation -->
+ <!-- Replace the current Babel line with this older version -->
+<script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+</head>
+<body>
+    <div id="loading" class="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-olive-50 to-olive-100">
+        <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-olive-600 mb-4"></div>
+        <div class="text-olive-600 text-lg">Initializing Restaurant Management System...</div>
+    </div>
+
+    <div id="root" style="display:none;"></div>
+
+    <script>
+        console.log("Starting script execution");
+        
+        // Create global context
+        window.AppContext = React.createContext();
+
+        // Navigation Component - RESTORED with all original tabs
+        function Navigation(props) {
+            const tabs = [
+                { id: 'home', label: 'Dashboard', icon: '🏠' },
+                { id: 'daily_entry', label: 'Daily Entry', icon: '📝' },
+                { id: 'management', label: 'Management', icon: '📊' },
+                { id: 'orders', label: 'Orders', icon: '🛒' },
+                { id: 'menu', label: 'Menu', icon: '📋' },
+                { id: 'ingredients', label: 'Ingredients', icon: '🥬' },
+                { id: 'inventory', label: 'Inventory', icon: '📦' },
+                { id: 'suppliers', label: 'Suppliers', icon: '🚛' },
+                { id: 'employees', label: 'Staff', icon: '👥' },
+                { id: 'reports', label: 'Reports', icon: '📈' }
+            ];
+
+            return React.createElement('nav', {
+                className: 'bg-white shadow-sm sticky top-0 z-10 border-b border-gray-200'
+            }, 
+                React.createElement('div', {
+                    className: 'container mx-auto px-4 overflow-x-auto'
+                },
+                    React.createElement('div', {
+                        className: 'flex space-x-6'
+                    },
+                        tabs.map(tab => 
+                            React.createElement('button', {
+                                key: tab.id,
+                                onClick: () => props.onTabChange(tab.id),
+                                className: `flex items-center gap-2 px-4 py-4 text-sm font-medium border-b-2 transition-all duration-200 ${
+                                    props.activeTab === tab.id
+                                        ? 'text-olive-600 border-olive-600 bg-olive-50'
+                                        : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300 hover:bg-gray-50'
+                                }`
+                            },
+                                React.createElement('span', null, tab.icon),
+                                React.createElement('span', {
+                                    className: 'whitespace-nowrap'
+                                }, tab.label)
+                            )
+                        )
+                    )
+                )
+            );
+        }
+
+        // Home Tab Dashboard - RESTORED original working version
+        function HomeTab(props) {
+            const { state } = React.useContext(window.AppContext);
+            const { data } = state;
+
+            // Calculate today's metrics
+            const today = new Date().toDateString();
+            const todayOrders = data.orders?.filter(order => {
+                const orderDate = new Date(order.order_date);
+                return orderDate.toDateString() === today;
+            }) || [];
+
+            const todayRevenue = todayOrders.reduce((sum, order) => sum + (order.total_amount || 0), 0);
+            const averageOrderValue = todayOrders.length > 0 ? todayRevenue / todayOrders.length : 0;
+            
+            const activeEmployees = data.employees?.filter(emp => emp.active === true).length || 0;
+
+            const lowStockItems = data.ingredients?.filter(ingredient => 
+                ingredient.quantity <= ingredient.min_stock
+            ).length || 0;
+
+            const pendingOrders = todayOrders.filter(order => 
+                order.status === 'pending' || order.status === 'in_progress'
+            ).length || 0;
+
+            // Get today's shawarma data
+            const todayShawarma = data.dailyShawarmaStack?.find(stack => 
+                new Date(stack.date).toDateString() === today
+            );
+
+            // Get today's sales data
+            const todaySales = data.dailySales?.find(sales => 
+                new Date(sales.sales_date).toDateString() === today
+            );
+
+            return React.createElement('div', {
+                className: 'space-y-6'
+            },
+                React.createElement('div', {
+                    className: 'flex justify-between items-center'
+                },
+                    React.createElement('div', null,
+                        React.createElement('h2', {
+                            className: 'text-3xl font-bold text-gray-800'
+                        }, 'Restaurant Dashboard'),
+                        React.createElement('p', {
+                            className: 'text-gray-600'
+                        }, new Date().toLocaleDateString('en-US', { 
+                            weekday: 'long', 
+                            year: 'numeric', 
+                            month: 'long', 
+                            day: 'numeric' 
+                        }))
+                    ),
+                    React.createElement('div', {
+                        className: 'text-right'
+                    },
+                        React.createElement('p', {
+                            className: 'text-sm text-gray-500'
+                        }, 'Last updated'),
+                        React.createElement('p', {
+                            className: 'text-sm font-medium'
+                        }, new Date().toLocaleTimeString())
+                    )
+                ),
+
+                // Key Performance Indicators
+                React.createElement('div', {
+                    className: 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6'
+                },
+                    React.createElement('div', {
+                        className: 'bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500'
+                    },
+                        React.createElement('div', {
+                            className: 'flex items-center'
+                        },
+                            React.createElement('div', {
+                                className: 'flex-1'
+                            },
+                                React.createElement('p', {
+                                    className: 'text-sm font-medium text-gray-600'
+                                }, "Today's Revenue"),
+                                React.createElement('p', {
+                                    className: 'text-2xl font-bold text-blue-600'
+                                }, todayRevenue.toFixed(2) + ' QAR'),
+                                React.createElement('p', {
+                                    className: 'text-xs text-gray-500'
+                                }, todayOrders.length + ' orders')
+                            ),
+                            React.createElement('div', {
+                                className: 'text-3xl text-blue-500'
+                            }, '💰')
+                        )
+                    ),
+
+                    React.createElement('div', {
+                        className: 'bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500'
+                    },
+                        React.createElement('div', {
+                            className: 'flex items-center'
+                        },
+                            React.createElement('div', {
+                                className: 'flex-1'
+                            },
+                                React.createElement('p', {
+                                    className: 'text-sm font-medium text-gray-600'
+                                }, 'Food Cost %'),
+                                React.createElement('p', {
+                                    className: 'text-2xl font-bold ' + (
+                                        todaySales?.food_cost_percentage > 25 ? 'text-red-600' : 'text-green-600'
+                                    )
+                                }, (todaySales?.food_cost_percentage?.toFixed(1) || 'N/A') + '%'),
+                                React.createElement('p', {
+                                    className: 'text-xs text-gray-500'
+                                }, 'Target: < 25%')
+                            ),
+                            React.createElement('div', {
+                                className: 'text-3xl text-green-500'
+                            }, '📊')
+                        )
+                    ),
+
+                    React.createElement('div', {
+                        className: 'bg-white rounded-lg shadow-md p-6 border-l-4 border-yellow-500'
+                    },
+                        React.createElement('div', {
+                            className: 'flex items-center'
+                        },
+                            React.createElement('div', {
+                                className: 'flex-1'
+                            },
+                                React.createElement('p', {
+                                    className: 'text-sm font-medium text-gray-600'
+                                }, 'Shawarma Waste'),
+                                React.createElement('p', {
+                                    className: 'text-2xl font-bold ' + (
+                                        !todayShawarma ? 'text-gray-400' :
+                                        todayShawarma.waste_percentage > 28 ? 'text-red-600' : 
+                                        todayShawarma.waste_percentage < 12 ? 'text-yellow-600' : 'text-green-600'
+                                    )
+                                }, (todayShawarma?.waste_percentage?.toFixed(1) || 'N/A') + '%'),
+                                React.createElement('p', {
+                                    className: 'text-xs text-gray-500'
+                                }, 'Range: 12-28%')
+                            ),
+                            React.createElement('div', {
+                                className: 'text-3xl text-yellow-500'
+                            }, '🗑️')
+                        )
+                    ),
+
+                    React.createElement('div', {
+                        className: 'bg-white rounded-lg shadow-md p-6 border-l-4 border-purple-500'
+                    },
+                        React.createElement('div', {
+                            className: 'flex items-center'
+                        },
+                            React.createElement('div', {
+                                className: 'flex-1'
+                            },
+                                React.createElement('p', {
+                                    className: 'text-sm font-medium text-gray-600'
+                                }, 'Average Order'),
+                                React.createElement('p', {
+                                    className: 'text-2xl font-bold text-purple-600'
+                                }, averageOrderValue.toFixed(2) + ' QAR'),
+                                React.createElement('p', {
+                                    className: 'text-xs text-gray-500'
+                                }, 'Per order value')
+                            ),
+                            React.createElement('div', {
+                                className: 'text-3xl text-purple-500'
+                            }, '🛒')
+                        )
+                    )
+                ),
+
+                // Status Cards
+                React.createElement('div', {
+                    className: 'grid grid-cols-1 md:grid-cols-3 gap-6'
+                },
+                    React.createElement('div', {
+                        className: 'bg-white rounded-lg shadow-md p-6 border-l-4 ' + (
+                            pendingOrders > 5 ? 'border-red-500' : pendingOrders > 2 ? 'border-yellow-500' : 'border-green-500'
+                        )
+                    },
+                        React.createElement('h3', {
+                            className: 'font-semibold text-gray-800 mb-2'
+                        }, 'Kitchen Status'),
+                        React.createElement('p', {
+                            className: 'text-3xl font-bold mb-2 ' + (
+                                pendingOrders > 5 ? 'text-red-600' : pendingOrders > 2 ? 'text-yellow-600' : 'text-green-600'
+                            )
+                        }, pendingOrders),
+                        React.createElement('p', {
+                            className: 'text-sm text-gray-600'
+                        }, 'Pending orders'),
+                        React.createElement('div', {
+                            className: 'mt-3'
+                        },
+                            React.createElement('span', {
+                                className: 'inline-flex px-2 py-1 text-xs font-semibold rounded-full ' + (
+                                    pendingOrders > 5 ? 'bg-red-100 text-red-800' : 
+                                    pendingOrders > 2 ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'
+                                )
+                            }, pendingOrders > 5 ? 'Busy' : pendingOrders > 2 ? 'Moderate' : 'Normal')
+                        )
+                    ),
+                    
+                    React.createElement('div', {
+                        className: 'bg-white rounded-lg shadow-md p-6 border-l-4 ' + (
+                            lowStockItems > 3 ? 'border-red-500' : lowStockItems > 0 ? 'border-yellow-500' : 'border-green-500'
+                        )
+                    },
+                        React.createElement('h3', {
+                            className: 'font-semibold text-gray-800 mb-2'
+                        }, 'Inventory Alert'),
+                        React.createElement('p', {
+                            className: 'text-3xl font-bold mb-2 ' + (
+                                lowStockItems > 3 ? 'text-red-600' : lowStockItems > 0 ? 'text-yellow-600' : 'text-green-600'
+                            )
+                        }, lowStockItems),
+                        React.createElement('p', {
+                            className: 'text-sm text-gray-600'
+                        }, 'Low stock items'),
+                        React.createElement('div', {
+                            className: 'mt-3'
+                        },
+                            React.createElement('span', {
+                                className: 'inline-flex px-2 py-1 text-xs font-semibold rounded-full ' + (
+                                    lowStockItems > 3 ? 'bg-red-100 text-red-800' : 
+                                    lowStockItems > 0 ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'
+                                )
+                            }, lowStockItems > 3 ? 'Critical' : lowStockItems > 0 ? 'Monitor' : 'Good')
+                        )
+                    ),
+                    
+                    React.createElement('div', {
+                        className: 'bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500'
+                    },
+                        React.createElement('h3', {
+                            className: 'font-semibold text-gray-800 mb-2'
+                        }, 'Staff Status'),
+                        React.createElement('p', {
+                            className: 'text-3xl font-bold text-blue-600 mb-2'
+                        }, activeEmployees),
+                        React.createElement('p', {
+                            className: 'text-sm text-gray-600'
+                        }, 'Active employees'),
+                        React.createElement('div', {
+                            className: 'mt-3'
+                        },
+                            React.createElement('span', {
+                                className: 'inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800'
+                            }, 'Available')
+                        )
+                    )
+                ),
+
+                // Quick Actions
+                React.createElement('div', {
+                    className: 'bg-white rounded-lg shadow-md p-6'
+                },
+                    React.createElement('h3', {
+                        className: 'text-lg font-semibold text-gray-800 mb-4'
+                    }, 'Quick Actions'),
+                    React.createElement('div', {
+                        className: 'grid grid-cols-2 md:grid-cols-4 gap-4'
+                    },
+                        React.createElement('button', {
+                            onClick: () => props.onTabChange('daily_entry'),
+                            className: 'bg-olive-600 text-white px-6 py-3 rounded-lg hover:bg-olive-700 transition-colors flex items-center gap-2'
+                        },
+                            React.createElement('span', null, '📝'),
+                            React.createElement('span', null, 'Daily Entry')
+                        ),
+                        React.createElement('button', {
+                            onClick: () => props.onTabChange('management'),
+                            className: 'bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2'
+                        },
+                            React.createElement('span', null, '📊'),
+                            React.createElement('span', null, 'Analytics')
+                        ),
+                        React.createElement('button', {
+                            onClick: () => props.onTabChange('orders'),
+                            className: 'bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2'
+                        },
+                            React.createElement('span', null, '🛒'),
+                            React.createElement('span', null, 'Manual Orders')
+                        ),
+                        React.createElement('button', {
+                            onClick: () => props.onTabChange('inventory'),
+                            className: 'bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2'
+                        },
+                            React.createElement('span', null, '📦'),
+                            React.createElement('span', null, 'Check Inventory')
+                        )
+                    )
+                ),
+
+                // Recent Activity & Alerts
+                React.createElement('div', {
+                    className: 'grid grid-cols-1 lg:grid-cols-2 gap-6'
+                },
+                    React.createElement('div', {
+                        className: 'bg-white rounded-lg shadow-md p-6'
+                    },
+                        React.createElement('h3', {
+                            className: 'text-lg font-semibold text-gray-800 mb-4'
+                        }, 'Recent Orders'),
+                        React.createElement('div', {
+                            className: 'space-y-3'
+                        },
+                            todayOrders.slice(0, 5).map((order, index) =>
+                                React.createElement('div', {
+                                    key: order.id || index,
+                                    className: 'flex justify-between items-center border-b pb-2'
+                                },
+                                    React.createElement('div', null,
+                                        React.createElement('p', {
+                                            className: 'font-medium'
+                                        }, 'Order #' + (order.order_number || index + 1)),
+                                        React.createElement('p', {
+                                            className: 'text-sm text-gray-600'
+                                        }, order.customer_name || 'Walk-in'),
+                                        React.createElement('p', {
+                                            className: 'text-xs text-gray-500'
+                                        }, order.order_time ? new Date(order.order_time).toLocaleTimeString() : 'Just now')
+                                    ),
+                                    React.createElement('div', {
+                                        className: 'text-right'
+                                    },
+                                        React.createElement('p', {
+                                            className: 'font-medium'
+                                        }, (order.total_amount || 0) + ' QAR'),
+                                        React.createElement('span', {
+                                            className: 'text-xs px-2 py-1 rounded-full ' + (
+                                                order.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                                order.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
+                                                order.status === 'pending' ? 'bg-blue-100 text-blue-800' :
+                                                'bg-gray-100 text-gray-800'
+                                            )
+                                        }, order.status || 'pending')
+                                    )
+                                )
+                            ),
+                            todayOrders.length === 0 && React.createElement('p', {
+                                className: 'text-gray-500 text-center py-4'
+                            }, 'No orders today yet')
+                        )
+                    ),
+
+                    React.createElement('div', {
+                        className: 'bg-white rounded-lg shadow-md p-6'
+                    },
+                        React.createElement('h3', {
+                            className: 'text-lg font-semibold text-gray-800 mb-4'
+                        }, "Today's Highlights"),
+                        React.createElement('div', {
+                            className: 'space-y-3'
+                        },
+                            todayShawarma && React.createElement('div', {
+                                className: 'p-3 bg-blue-50 rounded-lg'
+                            },
+                                React.createElement('p', {
+                                    className: 'font-medium text-blue-800'
+                                }, 'Shawarma Performance'),
+                                React.createElement('p', {
+                                    className: 'text-sm text-blue-600'
+                                }, 'Profit: ' + (todayShawarma.profit_per_kg?.toFixed(2) || 'N/A') + ' QAR/kg | Waste: ' + (todayShawarma.waste_percentage?.toFixed(1) || 'N/A') + '%')
+                            ),
+                            
+                            todaySales && React.createElement('div', {
+                                className: 'p-3 bg-green-50 rounded-lg'
+                            },
+                                React.createElement('p', {
+                                    className: 'font-medium text-green-800'
+                                }, 'Food Cost Control'),
+                                React.createElement('p', {
+                                    className: 'text-sm text-green-600'
+                                }, 'Food Cost: ' + (todaySales.food_cost_percentage?.toFixed(1) || '21.6') + '% ' + 
+                                   (todaySales.food_cost_percentage < 25 ? ' (Excellent!)' : ' (Monitor)'))
+                            ),
+                            
+                            lowStockItems > 0 && React.createElement('div', {
+                                className: 'p-3 bg-yellow-50 rounded-lg'
+                            },
+                                React.createElement('p', {
+                                    className: 'font-medium text-yellow-800'
+                                }, 'Inventory Alert'),
+                                React.createElement('p', {
+                                    className: 'text-sm text-yellow-600'
+                                }, lowStockItems + ' items need restocking')
+                            ),
+                            
+                            (lowStockItems === 0 && todayOrders.length > 0) && React.createElement('div', {
+                                className: 'p-3 bg-green-50 rounded-lg'
+                            },
+                                React.createElement('p', {
+                                    className: 'font-medium text-green-800'
+                                }, 'All Systems Green'),
+                                React.createElement('p', {
+                                    className: 'text-sm text-green-600'
+                                }, 'Operations running smoothly today!')
+                            ),
+                            
+                            (lowStockItems === 0 && todayOrders.length === 0) && React.createElement('div', {
+                                className: 'p-3 bg-blue-50 rounded-lg'
+                            },
+                                React.createElement('p', {
+                                    className: 'font-medium text-blue-800'
+                                }, 'Ready for Business'),
+                                React.createElement('p', {
+                                    className: 'text-sm text-blue-600'
+                                }, 'System ready to track today\'s operations')
+                            )
+                        )
+                    )
+                )
+            );
+        }
+
+        // SAFE Daily Entry Tab with external component check
+        function DailyEntryTab() {
+            if (typeof window.DailyEntryTab !== 'undefined' && window.DailyEntryTab !== DailyEntryTab) {
+                try {
+                    return React.createElement(window.DailyEntryTab);
+                } catch (error) {
+                    console.error("Error rendering external DailyEntryTab:", error);
+                }
+            }
+            
+            return React.createElement('div', {
+                className: 'bg-white rounded-lg shadow p-6'
+            },
+                React.createElement('h2', {
+                    className: 'text-xl font-semibold mb-4'
+                }, 'Daily Entry - Loading...'),
+                React.createElement('p', {
+                    className: 'text-gray-600'
+                }, 'Daily Entry form is being loaded. Please wait...')
+            );
+        }
+
+        // Complete Management Dashboard - Built-in
+                function ManagementTab() {
+    const [dashboardData, setDashboardData] = React.useState(null);
+    const [selectedPeriod, setSelectedPeriod] = React.useState('today');
+    const [customDate, setCustomDate] = React.useState(null);
+    const [alerts, setAlerts] = React.useState([]);
+    const [loading, setLoading] = React.useState(true);
+    const [showDebug, setShowDebug] = React.useState(false);
+    const [showDataStatus, setShowDataStatus] = React.useState(false);
+
+    React.useEffect(() => {
+        // Only load data if it's not custom period, or if custom period has a date selected
+        if (selectedPeriod !== 'custom' || (selectedPeriod === 'custom' && customDate)) {
+            loadDashboardData();
+        }
+    }, [selectedPeriod, customDate]);
+
+    const loadDashboardData = async () => {
+        setLoading(true);
+        // Clear previous data and alerts when loading
+        setDashboardData(null);
+        setAlerts([]);
+        
+        try {
+            let dateParam = null;
+            
+            if (selectedPeriod === 'today') {
+                dateParam = new Date().toDateString();
+            } else if (selectedPeriod === 'yesterday') {
+                const yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+                dateParam = yesterday.toDateString();
+            } else if (selectedPeriod === 'custom') {
+                if (customDate) {
+                    const selectedDate = new Date(customDate);
+                    dateParam = selectedDate.toDateString();
+                } else {
+                    setLoading(false);
+                    return; // Don't load data if no custom date selected
+                }
+            } else if (selectedPeriod === 'week') {
+                dateParam = new Date().toDateString();
+            } else if (selectedPeriod === 'month') {
+                dateParam = new Date().toDateString();
+            }
+            
+            console.log("Selected period:", selectedPeriod);
+            console.log("Custom date:", customDate);
+            console.log("Requesting data for date:", dateParam);
+            
+            const response = await google.script.run
+                .withSuccessHandler(data => {
+                    console.log("Received data:", data);
+                    const parsedData = JSON.parse(data);
+                    setDashboardData(parsedData);
+                    generateAlerts(parsedData);
+                    setLoading(false);
+                })
+                .withFailureHandler(error => {
+                    console.error('Error loading dashboard:', error);
+                    setLoading(false);
+                })
+                .generateDailyReport(dateParam);
+        } catch (error) {
+            console.error('Dashboard error:', error);
+            setLoading(false);
+        }
+    };
+
+    const generateAlerts = (data) => {
+        const newAlerts = [];
+        
+        // Shawarma waste alerts
+        if (data.shawarma && data.shawarma.waste_percentage) {
+            if (data.shawarma.waste_percentage > 28) {
+                newAlerts.push({
+                    type: 'danger',
+                    icon: '⚠️',
+                    title: 'High Shawarma Waste',
+                    message: `Waste is ${data.shawarma.waste_percentage.toFixed(1)}% (target: <28%)`,
+                    action: 'Review cutting techniques and order timing'
+                });
+            } else if (data.shawarma.waste_percentage < 12) {
+                newAlerts.push({
+                    type: 'warning',
+                    icon: '🔍',
+                    title: 'Unusually Low Waste',
+                    message: `Waste is ${data.shawarma.waste_percentage.toFixed(1)}% (verify measurements)`,
+                    action: 'Double-check weight measurements'
+                });
+            }
+        }
+
+        // Staff meals alert
+        if (data.shawarma && data.shawarma.staff_meals_weight_kg > 0.4) {
+            newAlerts.push({
+                type: 'warning',
+                icon: '🍽️',
+                title: 'Staff Meals Over Limit',
+                message: `${data.shawarma.staff_meals_weight_kg}kg used (limit: 0.4kg)`,
+                action: 'Monitor staff meal portions'
+            });
+        }
+
+        // Food cost alerts
+        if (data.sales && data.sales.food_cost_percentage > 25) {
+            newAlerts.push({
+                type: 'danger',
+                icon: '💰',
+                title: 'High Food Cost %',
+                message: `Food cost is ${data.sales.food_cost_percentage.toFixed(1)}% (target: <25%)`,
+                action: 'Review portion sizes and waste'
+            });
+        }
+
+        setAlerts(newAlerts);
+    };
+
+    const getAlertColor = (type) => {
+        switch (type) {
+            case 'danger': return 'border-red-500 bg-red-50 text-red-800';
+            case 'warning': return 'border-yellow-500 bg-yellow-50 text-yellow-800';
+            case 'success': return 'border-green-500 bg-green-50 text-green-800';
+            default: return 'border-blue-500 bg-blue-50 text-blue-800';
+        }
+    };
+
+    return React.createElement('div', {
+        className: 'space-y-6'
+    },
+        // Header - ALWAYS VISIBLE (never loading)
+        React.createElement('div', {
+            className: 'bg-white rounded-lg shadow p-6'
+        },
+            React.createElement('div', {
+                className: 'flex justify-between items-center'
+            },
+                React.createElement('div', null,
+                    React.createElement('h1', {
+                        className: 'text-2xl font-bold text-gray-800'
+                    }, 'Management Dashboard'),
+                    React.createElement('p', {
+                        className: 'text-gray-600'
+                    }, loading ? 'Loading data...' : 'Real-time restaurant performance analytics')
+                ),
+                React.createElement('div', {
+                    className: 'flex items-center gap-4'
+                },
+                    React.createElement('select', {
+                        value: selectedPeriod,
+                        onChange: e => setSelectedPeriod(e.target.value),
+                        className: 'px-3 py-2 border rounded focus:ring-2 focus:ring-olive-500'
+                    },
+                        React.createElement('option', { value: 'today' }, 'Today'),
+                        React.createElement('option', { value: 'yesterday' }, 'Yesterday'),
+                        React.createElement('option', { value: 'custom' }, 'Custom Date'),
+                        React.createElement('option', { value: 'week' }, 'This Week'),
+                        React.createElement('option', { value: 'month' }, 'This Month')
+                    ),
+                    
+                    selectedPeriod === 'custom' && React.createElement('input', {
+                        type: 'date',
+                        value: customDate || new Date().toISOString().split('T')[0],
+                        onChange: e => setCustomDate(e.target.value),
+                        className: 'px-3 py-2 border rounded focus:ring-2 focus:ring-olive-500'
+                    }),
+                    
+                    React.createElement('button', {
+                        onClick: loadDashboardData,
+                        className: 'bg-olive-600 text-white px-4 py-2 rounded hover:bg-olive-700'
+                    }, 'Refresh')
+                )
+            )
+        ),
+
+        // 1. ALERTS SECTION - Show loading placeholder when loading
+        loading ? React.createElement('div', {
+            className: 'bg-white rounded-lg shadow p-6 animate-pulse'
+        },
+            React.createElement('div', {
+                className: 'h-6 bg-gray-200 rounded w-48 mb-4'
+            }),
+            React.createElement('div', {
+                className: 'space-y-3'
+            },
+                [1,2].map(i => 
+                    React.createElement('div', {
+                        key: i,
+                        className: 'border-l-4 border-gray-200 p-4 rounded-lg'
+                    },
+                        React.createElement('div', {
+                            className: 'flex items-start gap-3'
+                        },
+                            React.createElement('div', {
+                                className: 'w-6 h-6 bg-gray-200 rounded'
+                            }),
+                            React.createElement('div', {
+                                className: 'flex-1 space-y-2'
+                            },
+                                React.createElement('div', {
+                                    className: 'h-4 bg-gray-200 rounded w-32'
+                                }),
+                                React.createElement('div', {
+                                    className: 'h-3 bg-gray-200 rounded w-48'
+                                }),
+                                React.createElement('div', {
+                                    className: 'h-3 bg-gray-200 rounded w-40'
+                                })
+                            )
+                        )
+                    )
+                )
+            )
+        ) : (alerts.length > 0 ? React.createElement('div', {
+            className: 'space-y-3'
+        },
+            React.createElement('h2', {
+                className: 'text-lg font-semibold text-gray-800'
+            }, '🚨 Active Alerts'),
+            alerts.map((alert, index) =>
+                React.createElement('div', {
+                    key: index,
+                    className: `border-l-4 p-4 rounded-lg ${getAlertColor(alert.type)}`
+                },
+                    React.createElement('div', {
+                        className: 'flex items-start gap-3'
+                    },
+                        React.createElement('span', {
+                            className: 'text-xl'
+                        }, alert.icon),
+                        React.createElement('div', {
+                            className: 'flex-1'
+                        },
+                            React.createElement('h3', {
+                                className: 'font-semibold'
+                            }, alert.title),
+                            React.createElement('p', {
+                                className: 'text-sm mt-1'
+                            }, alert.message),
+                            React.createElement('p', {
+                                className: 'text-xs mt-2 font-medium'
+                            }, 'Action: ' + alert.action)
+                        )
+                    )
+                )
+            )
+        ) : React.createElement('div', {
+            className: 'bg-green-50 border border-green-200 rounded-lg p-4'
+        },
+            React.createElement('div', {
+                className: 'flex items-center gap-3'
+            },
+                React.createElement('span', {
+                    className: 'text-green-600 text-xl'
+                }, '✅'),
+                React.createElement('div', null,
+                    React.createElement('p', {
+                        className: 'font-medium text-green-800'
+                    }, 'All Systems Normal'),
+                    React.createElement('p', {
+                        className: 'text-sm text-green-600'
+                    }, 'No alerts for the selected period.')
+                )
+            )
+        )),
+
+        // 2. KEY METRICS - Show loading placeholders when loading
+        loading ? React.createElement('div', {
+            className: 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6'
+        },
+            [1,2,3,4].map(i => 
+                React.createElement('div', {
+                    key: i,
+                    className: 'bg-white rounded-lg shadow p-6 animate-pulse'
+                },
+                    React.createElement('div', {
+                        className: 'flex items-center justify-between'
+                    },
+                        React.createElement('div', {
+                            className: 'flex-1'
+                        },
+                            React.createElement('div', {
+                                className: 'h-4 bg-gray-200 rounded w-24 mb-2'
+                            }),
+                            React.createElement('div', {
+                                className: 'h-8 bg-gray-200 rounded w-16'
+                            })
+                        ),
+                        React.createElement('div', {
+                            className: 'w-8 h-8 bg-gray-200 rounded'
+                        })
+                    ),
+                    React.createElement('div', {
+                        className: 'mt-4 h-3 bg-gray-200 rounded w-20'
+                    })
+                )
+            )
+        ) : React.createElement('div', {
+            className: 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6'
+        },
+            // Shawarma Profitability
+            React.createElement('div', {
+                className: 'bg-white rounded-lg shadow p-6'
+            },
+                React.createElement('div', {
+                    className: 'flex items-center justify-between'
+                },
+                    React.createElement('div', null,
+                        React.createElement('p', {
+                            className: 'text-sm font-medium text-gray-600'
+                        }, 'Shawarma Profit/kg'),
+                        React.createElement('p', {
+                            className: 'text-2xl font-bold text-green-600'
+                        }, dashboardData && dashboardData.shawarma && dashboardData.shawarma.profit_per_kg ? 
+                            dashboardData.shawarma.profit_per_kg.toFixed(2) + ' QAR' : 'N/A')
+                    ),
+                    React.createElement('div', {
+                        className: 'text-3xl'
+                    }, '🥙')
+                ),
+                React.createElement('div', {
+                    className: 'mt-4 text-sm text-gray-500'
+                }, 'Revenue/kg: ' + (dashboardData && dashboardData.shawarma && dashboardData.shawarma.revenue_per_kg ? 
+                    dashboardData.shawarma.revenue_per_kg.toFixed(2) + ' QAR' : 'N/A'))
+            ),
+
+            // Food Cost Percentage
+            React.createElement('div', {
+                className: 'bg-white rounded-lg shadow p-6'
+            },
+                React.createElement('div', {
+                    className: 'flex items-center justify-between'
+                },
+                    React.createElement('div', null,
+                        React.createElement('p', {
+                            className: 'text-sm font-medium text-gray-600'
+                        }, 'Food Cost %'),
+                        React.createElement('p', {
+                            className: 'text-2xl font-bold ' + (
+                                dashboardData && dashboardData.sales && dashboardData.sales.food_cost_percentage > 25 ? 'text-red-600' : 'text-green-600'
+                            )
+                        }, dashboardData && dashboardData.sales && dashboardData.sales.food_cost_percentage ? 
+                            dashboardData.sales.food_cost_percentage.toFixed(1) + '%' : 'N/A')
+                    ),
+                    React.createElement('div', {
+                        className: 'text-3xl'
+                    }, '💰')
+                ),
+                React.createElement('div', {
+                    className: 'mt-4 text-sm text-gray-500'
+                }, 'Target: < 25%')
+            ),
+
+            // Shawarma Waste
+            React.createElement('div', {
+                className: 'bg-white rounded-lg shadow p-6'
+            },
+                React.createElement('div', {
+                    className: 'flex items-center justify-between'
+                },
+                    React.createElement('div', null,
+                        React.createElement('p', {
+                            className: 'text-sm font-medium text-gray-600'
+                        }, 'Shawarma Waste'),
+                        React.createElement('p', {
+                            className: 'text-2xl font-bold ' + (
+                                !dashboardData || !dashboardData.shawarma ? 'text-gray-400' :
+                                dashboardData.shawarma.waste_percentage > 28 ? 'text-red-600' : 
+                                dashboardData.shawarma.waste_percentage < 12 ? 'text-yellow-600' : 'text-green-600'
+                            )
+                        }, dashboardData && dashboardData.shawarma && dashboardData.shawarma.waste_percentage ? 
+                            dashboardData.shawarma.waste_percentage.toFixed(1) + '%' : 'N/A')
+                    ),
+                    React.createElement('div', {
+                        className: 'text-3xl'
+                    }, '🗑️')
+                ),
+                React.createElement('div', {
+                    className: 'mt-4 text-sm text-gray-500'
+                }, 'Range: 12-28%')
+            ),
+
+            // Daily Revenue
+            React.createElement('div', {
+                className: 'bg-white rounded-lg shadow p-6'
+            },
+                React.createElement('div', {
+                    className: 'flex items-center justify-between'
+                },
+                    React.createElement('div', null,
+                        React.createElement('p', {
+                            className: 'text-sm font-medium text-gray-600'
+                        }, 'Daily Revenue'),
+                        React.createElement('p', {
+                            className: 'text-2xl font-bold text-blue-600'
+                        }, dashboardData && dashboardData.sales && dashboardData.sales.total_revenue ? 
+                            dashboardData.sales.total_revenue.toFixed(2) + ' QAR' : 'N/A')
+                    ),
+                    React.createElement('div', {
+                        className: 'text-3xl'
+                    }, '📈')
+                ),
+                React.createElement('div', {
+                    className: 'mt-4 text-sm text-gray-500'
+                }, 'Orders: ' + (dashboardData && dashboardData.sales && dashboardData.sales.total_orders ? 
+                    dashboardData.sales.total_orders : 'N/A'))
+            )
+        ),
+
+        // 3. SHAWARMA STACK ANALYSIS - Show loading placeholder when loading
+        loading ? React.createElement('div', {
+            className: 'bg-white rounded-lg shadow p-6 animate-pulse'
+        },
+            React.createElement('div', {
+                className: 'h-6 bg-gray-200 rounded w-64 mb-4'
+            }),
+            React.createElement('div', {
+                className: 'space-y-4'
+            },
+                React.createElement('div', {
+                    className: 'grid grid-cols-2 gap-4'
+                },
+                    [1,2,3,4,5,6].map(i =>
+                        React.createElement('div', {
+                            key: i
+                        },
+                            React.createElement('div', {
+                                className: 'h-3 bg-gray-200 rounded w-24 mb-1'
+                            }),
+                            React.createElement('div', {
+                                className: 'h-4 bg-gray-200 rounded w-16'
+                            })
+                        )
+                    )
+                ),
+                React.createElement('div', {
+                    className: 'border-t pt-4 mt-4'
+                },
+                    React.createElement('div', {
+                        className: 'h-5 bg-gray-200 rounded w-40 mb-2'
+                    }),
+                    React.createElement('div', {
+                        className: 'grid grid-cols-2 gap-4'
+                    },
+                        [1,2,3,4].map(i =>
+                            React.createElement('div', {
+                                key: i
+                            },
+                                React.createElement('div', {
+                                    className: 'h-3 bg-gray-200 rounded w-20 mb-1'
+                                }),
+                                React.createElement('div', {
+                                    className: 'h-4 bg-gray-200 rounded w-16'
+                                })
+                            )
+                        )
+                    )
+                )
+            )
+        ) : React.createElement('div', {
+            className: 'bg-white rounded-lg shadow p-6'
+        },
+            React.createElement('h3', {
+                className: 'text-lg font-semibold text-gray-800 mb-4'
+            }, '🥙 Shawarma Stack Analysis'),
+            dashboardData && dashboardData.shawarma ? React.createElement('div', {
+                className: 'space-y-4'
+            },
+                React.createElement('div', {
+                    className: 'grid grid-cols-2 gap-4 text-sm'
+                },
+                    React.createElement('div', null,
+                        React.createElement('span', {
+                            className: 'text-gray-600'
+                        }, 'Starting Weight:'),
+                        React.createElement('p', {
+                            className: 'font-medium'
+                        }, (dashboardData.shawarma.starting_weight_kg ? dashboardData.shawarma.starting_weight_kg.toFixed(3) : 'N/A') + ' kg')
+                    ),
+                    React.createElement('div', null,
+                        React.createElement('span', {
+                            className: 'text-gray-600'
+                        }, 'Remaining Weight:'),
+                        React.createElement('p', {
+                            className: 'font-medium'
+                        }, (dashboardData.shawarma.remaining_weight_kg ? dashboardData.shawarma.remaining_weight_kg.toFixed(3) : 'N/A') + ' kg')
+                    ),
+                    React.createElement('div', null,
+                        React.createElement('span', {
+                            className: 'text-gray-600'
+                        }, 'Orders Weight:'),
+                        React.createElement('p', {
+                            className: 'font-medium'
+                        }, (dashboardData.shawarma.orders_weight_kg ? dashboardData.shawarma.orders_weight_kg.toFixed(3) : 'N/A') + ' kg')
+                    ),
+                    React.createElement('div', null,
+                        React.createElement('span', {
+                            className: 'text-gray-600'
+                        }, 'Shaving Weight:'),
+                        React.createElement('p', {
+                            className: 'font-medium'
+                        }, (dashboardData.shawarma.shaving_weight_kg ? dashboardData.shawarma.shaving_weight_kg.toFixed(3) : 'N/A') + ' kg')
+                    ),
+                    React.createElement('div', null,
+                        React.createElement('span', {
+                            className: 'text-gray-600'
+                        }, 'Staff Meals:'),
+                        React.createElement('p', {
+                            className: 'font-medium ' + (
+                                dashboardData.shawarma.staff_meals_weight_kg > 0.4 ? 'text-red-600' : 'text-green-600'
+                            )
+                        }, (dashboardData.shawarma.staff_meals_weight_kg ? dashboardData.shawarma.staff_meals_weight_kg.toFixed(3) : '0.000') + ' kg')
+                    ),
+                    React.createElement('div', null,
+                        React.createElement('span', {
+                            className: 'text-gray-600'
+                        }, 'Waste Weight:'),
+                        React.createElement('p', {
+                            className: 'font-medium'
+                        }, (dashboardData.shawarma.waste_weight_kg ? dashboardData.shawarma.waste_weight_kg.toFixed(3) : 'N/A') + ' kg')
+                    )
+                ),
+                
+                React.createElement('div', {
+                    className: 'border-t pt-4'
+                },
+                    React.createElement('h4', {
+                        className: 'font-medium text-gray-700 mb-2'
+                    }, 'Profitability Metrics'),
+                    React.createElement('div', {
+                        className: 'grid grid-cols-2 gap-4 text-sm'
+                    },
+                        React.createElement('div', null,
+                            React.createElement('span', {
+                                className: 'text-gray-600'
+                            }, 'Revenue per kg:'),
+                            React.createElement('p', {
+                                className: 'font-medium text-green-600'
+                            }, (dashboardData.shawarma.revenue_per_kg ? dashboardData.shawarma.revenue_per_kg.toFixed(2) : 'N/A') + ' QAR')
+                        ),
+                        React.createElement('div', null,
+                            React.createElement('span', {
+                                className: 'text-gray-600'
+                            }, 'Cost per kg:'),
+                            React.createElement('p', {
+                                className: 'font-medium'
+                            }, (dashboardData.shawarma.starting_weight_kg && dashboardData.shawarma.stack_cost_qar ? 
+                                (dashboardData.shawarma.stack_cost_qar / dashboardData.shawarma.starting_weight_kg).toFixed(2) : 'N/A') + ' QAR')
+                        ),
+                        React.createElement('div', null,
+                            React.createElement('span', {
+                                className: 'text-gray-600'
+                            }, 'Profit per kg:'),
+                            React.createElement('p', {
+                                className: 'font-medium text-green-600'
+                            }, (dashboardData.shawarma.profit_per_kg ? dashboardData.shawarma.profit_per_kg.toFixed(2) : 'N/A') + ' QAR')
+                        ),
+                        React.createElement('div', null,
+                            React.createElement('span', {
+                                className: 'text-gray-600'
+                            }, 'Total Stack Cost:'),
+                            React.createElement('p', {
+                                className: 'font-medium'
+                            }, (dashboardData.shawarma.stack_cost_qar ? dashboardData.shawarma.stack_cost_qar.toFixed(2) : 'N/A') + ' QAR')
+                        )
+                    )
+                )
+            ) : React.createElement('p', {
+                className: 'text-gray-500'
+            }, selectedPeriod === 'custom' && !customDate ? 'Please select a custom date to view data' : 'No shawarma data available for selected period')
+        ),
+
+        // 4. DATA STATUS SECTION - COLLAPSIBLE (moved to bottom)
+        React.createElement('div', {
+            className: 'bg-white rounded-lg shadow p-6'
+        },
+            React.createElement('button', {
+                onClick: () => setShowDataStatus(!showDataStatus),
+                className: 'flex items-center justify-between w-full text-left'
+            },
+                React.createElement('h3', {
+                    className: 'text-lg font-semibold text-gray-800'
+                }, '📊 Data Status for ' + selectedPeriod),
+                React.createElement('span', {
+                    className: 'text-gray-500'
+                }, showDataStatus ? '▼' : '▶')
+            ),
+            showDataStatus && (loading ? React.createElement('div', {
+                className: 'mt-4 grid grid-cols-2 md:grid-cols-3 gap-4 animate-pulse'
+            },
+                [1,2,3,4,5].map(i =>
+                    React.createElement('div', {
+                        key: i,
+                        className: 'p-3 rounded-lg border border-gray-200'
+                    },
+                        React.createElement('div', {
+                            className: 'h-4 bg-gray-200 rounded w-32'
+                        })
+                    )
+                )
+            ) : React.createElement('div', {
+                className: 'mt-4 grid grid-cols-2 md:grid-cols-3 gap-4'
+            },
+                React.createElement('div', {
+                    className: 'p-3 rounded-lg ' + (
+                        dashboardData && dashboardData.data_found && dashboardData.data_found.shawarma ? 
+                        'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+                    )
+                },
+                    React.createElement('p', {
+                        className: 'font-medium ' + (
+                            dashboardData && dashboardData.data_found && dashboardData.data_found.shawarma ? 
+                            'text-green-800' : 'text-red-800'
+                        )
+                    }, 'Shawarma Data: ' + (
+                        dashboardData && dashboardData.data_found && dashboardData.data_found.shawarma ? '✅ Found' : '❌ Not Found'
+                    ))
+                ),
+                React.createElement('div', {
+                    className: 'p-3 rounded-lg ' + (
+                        dashboardData && dashboardData.data_found && dashboardData.data_found.sales ? 
+                        'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+                    )
+                },
+                    React.createElement('p', {
+                        className: 'font-medium ' + (
+                            dashboardData && dashboardData.data_found && dashboardData.data_found.sales ? 
+                            'text-green-800' : 'text-red-800'
+                        )
+                    }, 'Sales Data: ' + (
+                        dashboardData && dashboardData.data_found && dashboardData.data_found.sales ? '✅ Found' : '❌ Not Found'
+                    ))
+                ),
+                React.createElement('div', {
+                    className: 'p-3 rounded-lg ' + (
+                        dashboardData && dashboardData.data_found && dashboardData.data_found.rawProteins ? 
+                        'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+                    )
+                },
+                    React.createElement('p', {
+                        className: 'font-medium ' + (
+                            dashboardData && dashboardData.data_found && dashboardData.data_found.rawProteins ? 
+                            'text-green-800' : 'text-red-800'
+                        )
+                    }, 'Inventory Data: ' + (
+                        dashboardData && dashboardData.data_found && dashboardData.data_found.rawProteins ? '✅ Found' : '❌ Not Found'
+                    ))
+                ),
+                React.createElement('div', {
+                    className: 'p-3 rounded-lg bg-blue-50 border border-blue-200'
+                },
+                    React.createElement('p', {
+                        className: 'font-medium text-blue-800'
+                    }, 'Requested Date: ' + (dashboardData && dashboardData.requested_date ? dashboardData.requested_date : 'Unknown'))
+                ),
+                React.createElement('div', {
+                    className: 'p-3 rounded-lg bg-purple-50 border border-purple-200'
+                },
+                    React.createElement('p', {
+                        className: 'font-medium text-purple-800'
+                    }, 'Current Period: ' + selectedPeriod)
+                )
+            ))
+        ),
+
+        // 5. DEBUG TOGGLE (at the very bottom)
+        React.createElement('div', {
+            className: 'bg-gray-50 border border-gray-200 rounded-lg p-4'
+        },
+            React.createElement('button', {
+              onClick: () => setShowDebug(!showDebug),
+               className: 'text-sm text-gray-600 hover:text-gray-800 underline'
+           }, showDebug ? 'Hide Debug Info' : 'View Debug Info'),
+           showDebug && React.createElement('div', {
+               className: 'mt-3'
+           },
+               React.createElement('h3', {
+                   className: 'font-semibold text-gray-800 mb-2'
+               }, 'Debug Information:'),
+               React.createElement('pre', {
+                   className: 'text-xs text-gray-600 overflow-auto max-h-96'
+               }, JSON.stringify(dashboardData, null, 2))
+           )
+       )
+   );
+}
+
+        // Placeholder tabs for future development - RESTORED
+        function OrdersTab() {
+            return React.createElement('div', {
+                className: 'bg-white rounded-lg shadow p-6'
+            },
+                React.createElement('h2', {
+                    className: 'text-xl font-semibold mb-4'
+                }, 'Orders Management'),
+                React.createElement('p', {
+                    className: 'text-gray-600'
+                }, 'Manual order entry and management coming soon...')
+            );
+        }
+
+        function MenuTab() {
+            return React.createElement('div', {
+                className: 'bg-white rounded-lg shadow p-6'
+            },
+                React.createElement('h2', {
+                    className: 'text-xl font-semibold mb-4'
+                }, 'Menu Management'),
+                React.createElement('p', {
+                    className: 'text-gray-600'
+                }, 'Menu item and pricing management coming soon...')
+            );
+        }
+
+        function IngredientsTab() {
+            return React.createElement('div', {
+                className: 'bg-white rounded-lg shadow p-6'
+            },
+                React.createElement('h2', {
+                    className: 'text-xl font-semibold mb-4'
+                }, 'Ingredients Management'),
+                React.createElement('p', {
+                    className: 'text-gray-600'
+                }, 'Ingredient catalog and cost management coming soon...')
+            );
+        }
+
+        function InventoryTab() {
+            return React.createElement('div', {
+                className: 'bg-white rounded-lg shadow p-6'
+            },
+                React.createElement('h2', {
+                    className: 'text-xl font-semibold mb-4'
+                }, 'Inventory Management'),
+                React.createElement('p', {
+                    className: 'text-gray-600'
+                }, 'Stock levels and inventory tracking coming soon...')
+            );
+        }
+
+        function SuppliersTab() {
+            return React.createElement('div', {
+                className: 'bg-white rounded-lg shadow p-6'
+            },
+                React.createElement('h2', {
+                    className: 'text-xl font-semibold mb-4'
+                }, 'Suppliers Management'),
+                React.createElement('p', {
+                    className: 'text-gray-600'
+                }, 'Supplier contacts and purchase management coming soon...')
+            );
+        }
+
+        function EmployeesTab() {
+            return React.createElement('div', {
+                className: 'bg-white rounded-lg shadow p-6'
+            },
+                React.createElement('h2', {
+                    className: 'text-xl font-semibold mb-4'
+                }, 'Staff Management'),
+                React.createElement('p', {
+                    className: 'text-gray-600'
+                }, 'Employee records and shift management coming soon...')
+            );
+        }
+
+        function ReportsTab() {
+            return React.createElement('div', {
+                className: 'bg-white rounded-lg shadow p-6'
+            },
+                React.createElement('h2', {
+                    className: 'text-xl font-semibold mb-4'
+                }, 'Reports'),
+                React.createElement('p', {
+                    className: 'text-gray-600'
+                }, 'Detailed reports and analytics coming soon...')
+            );
+        }
+
+        // Main App Component - RESTORED with full functionality
+        function App() {
+            const [state, setState] = React.useState({
+                activeTab: 'home',
+                loading: true,
+                initialized: false,
+                error: null,
+                loadingMessage: 'Initializing restaurant management system...',
+                data: {
+                    ingredients: [],
+                    products: [],
+                    recipes: [],
+                    orders: [],
+                    orderItems: [],
+                    employees: [],
+                    suppliers: [],
+                    dailyShawarmaStack: [],
+                    dailySales: [],
+                    dailyInventoryCount: [],
+                    dailyProductSales: []
+                }
+            });
+
+            const loadData = () => {
+                setState(prev => ({
+                    ...prev,
+                    loading: true,
+                    loadingMessage: 'Loading restaurant data...'
+                }));
+
+                // Simulate data loading for now
+                setTimeout(() => {
+                    setState(prev => ({
+                        ...prev,
+                        loading: false,
+                        initialized: true,
+                        loadingMessage: ''
+                    }));
+                }, 2000);
+            };
+
+            React.useEffect(() => {
+                loadData();
+            }, []);
+
+            if (state.loading) {
+                return React.createElement('div', {
+                    className: 'min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-olive-50 to-olive-100'
+                },
+                    React.createElement('div', {
+                        className: 'animate-spin rounded-full h-16 w-16 border-b-2 border-olive-600 mb-4'
+                    }),
+                    React.createElement('div', {
+                        className: 'text-olive-600 text-lg'
+                    }, state.loadingMessage)
+                );
+            }
+
+            if (state.error) {
+                return React.createElement('div', {
+                    className: 'min-h-screen flex items-center justify-center bg-red-50'
+                },
+                    React.createElement('div', {
+                        className: 'text-center'
+                    },
+                        React.createElement('h1', {
+                            className: 'text-2xl font-bold text-red-800 mb-4'
+                        }, 'Error'),
+                        React.createElement('p', {
+                            className: 'text-red-600 mb-4'
+                        }, state.error),
+                        React.createElement('button', {
+                            onClick: loadData,
+                            className: 'bg-olive-600 text-white px-6 py-2 rounded hover:bg-olive-700'
+                        }, 'Retry')
+                    )
+                );
+            }
+
+            const renderActiveTab = () => {
+                try {
+                    switch (state.activeTab) {
+                        case 'home':
+                            return React.createElement(HomeTab, {
+                                onTabChange: (tab) => setState(prev => ({ ...prev, activeTab: tab }))
+                            });
+                        case 'daily_entry':
+                            return React.createElement(DailyEntryTab);
+                        case 'management':
+                            return React.createElement(ManagementTab);
+                        case 'orders':
+                            return React.createElement(OrdersTab);
+                        case 'menu':
+                            return React.createElement(MenuTab);
+                        case 'ingredients':
+                            return React.createElement(IngredientsTab);
+                        case 'inventory':
+                            return React.createElement(InventoryTab);
+                        case 'suppliers':
+                            return React.createElement(SuppliersTab);
+                        case 'employees':
+                            return React.createElement(EmployeesTab);
+                        case 'reports':
+                            return React.createElement(ReportsTab);
+                        default:
+                            return React.createElement(HomeTab, {
+                                onTabChange: (tab) => setState(prev => ({ ...prev, activeTab: tab }))
+                            });
+                    }
+                } catch (error) {
+                    console.error("Error rendering tab:", error);
+                    return React.createElement('div', {
+                        className: 'bg-red-50 border border-red-200 rounded-lg p-6'
+                    },
+                        React.createElement('h2', {
+                            className: 'text-red-800 font-semibold mb-2'
+                        }, 'Error Loading Tab'),
+                        React.createElement('p', {
+                            className: 'text-red-600'
+                        }, 'Please refresh the page or try a different tab.')
+                    );
+                }
+            };
+
+            return React.createElement(window.AppContext.Provider, {
+                value: { state, setState }
+            },
+                React.createElement('div', {
+                    className: 'min-h-screen bg-gradient-to-br from-olive-50 to-olive-100'
+                },
+                    React.createElement('header', {
+                        className: 'bg-white shadow-sm'
+                    },
+                        React.createElement('div', {
+                            className: 'container mx-auto px-4 py-4'
+                        },
+                            React.createElement('h1', {
+                                className: 'text-2xl font-bold text-olive-800'
+                            }, 'Restaurant Management System'),
+                            React.createElement('p', {
+                                className: 'text-olive-600'
+                            }, 'Complete restaurant operations control')
+                        )
+                    ),
+
+                    React.createElement(Navigation, {
+                        activeTab: state.activeTab,
+                        onTabChange: (tab) => setState(prev => ({ ...prev, activeTab: tab }))
+                    }),
+
+                    React.createElement('main', {
+                        className: 'container mx-auto px-4 py-8'
+                    },
+                        !state.initialized ? React.createElement('div', {
+                            className: 'text-center py-12'
+                        },
+                            React.createElement('p', {
+                                className: 'text-gray-500'
+                            }, 'Initializing restaurant system...')
+                        ) : renderActiveTab()
+                    )
+                )
+            );
+        }
+
+        // Define the initialization function
+        window.initializeRestaurantApp = function() {
+            console.log("Initializing React app...");
+            try {
+                ReactDOM.render(React.createElement(App), document.getElementById('root'));
+                console.log("App rendered successfully");
+            } catch (error) {
+                console.error("Error rendering app:", error);
+            }
+        };
+
+        console.log("All components defined");
+    </script>
+
+    <!-- Include component files -->
+    <?!= include('DailyEntryTab'); ?>
+    <?!= include('ManagementDashboard'); ?>
+    <?!= include('app-bundle'); ?>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log("DOM loaded");
+            
+            setTimeout(function() {
+                if (typeof window.initializeRestaurantApp === 'function') {
+                    console.log("Calling initializeRestaurantApp");
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('root').style.display = 'block';
+                    window.initializeRestaurantApp();
+                } else {
+                    console.error("initializeRestaurantApp not found");
+                }
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
