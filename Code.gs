@@ -802,6 +802,41 @@ function generateDailyReport(date) {
       const rowDateString = rowDate.toDateString();
       return rowDateString === targetDateString;
     });
+
+    // Build consolidated inventory object
+    const inventory = {};
+    if (todayRawProteins) {
+      inventory.frozen_chicken_breast_remaining = todayRawProteins.frozen_chicken_breast_remaining;
+      inventory.frozen_chicken_breast_received  = todayRawProteins.frozen_chicken_breast_received;
+      inventory.chicken_shawarma_remaining      = todayRawProteins.chicken_shawarma_remaining;
+      inventory.chicken_shawarma_received       = todayRawProteins.chicken_shawarma_received;
+      inventory.steak_remaining                 = todayRawProteins.steak_remaining;
+      inventory.steak_received                  = todayRawProteins.steak_received;
+    }
+    if (todayMarinatedProteins) {
+      inventory.fahita_chicken_remaining = todayMarinatedProteins.fahita_chicken_remaining;
+      inventory.fahita_chicken_received  = todayMarinatedProteins.fahita_chicken_received;
+      inventory.chicken_sub_remaining    = todayMarinatedProteins.chicken_sub_remaining;
+      inventory.chicken_sub_received     = todayMarinatedProteins.chicken_sub_received;
+      inventory.spicy_strips_remaining   = todayMarinatedProteins.spicy_strips_remaining;
+      inventory.spicy_strips_received    = todayMarinatedProteins.spicy_strips_received;
+      inventory.original_strips_remaining= todayMarinatedProteins.original_strips_remaining;
+      inventory.original_strips_received = todayMarinatedProteins.original_strips_received;
+    }
+    if (todayBread) {
+      inventory.saj_bread_remaining   = todayBread.saj_bread_remaining;
+      inventory.saj_bread_received    = todayBread.saj_bread_received;
+      inventory.pita_bread_remaining  = todayBread.pita_bread_remaining;
+      inventory.pita_bread_received   = todayBread.pita_bread_received;
+      inventory.bread_roll_remaining  = todayBread.bread_rolls_remaining || todayBread.bread_roll_remaining;
+      inventory.bread_roll_received   = todayBread.bread_rolls_received  || todayBread.bread_roll_received;
+    }
+    if (todayHighCost) {
+      inventory.cream_remaining = todayHighCost.cream_remaining;
+      inventory.cream_received  = todayHighCost.cream_received;
+      inventory.mayo_remaining  = todayHighCost.mayo_remaining;
+      inventory.mayo_received   = todayHighCost.mayo_received;
+    }
     
     console.log("RESULTS:");
     console.log("Found shawarma:", !!todayShawarma);
@@ -825,6 +860,7 @@ function generateDailyReport(date) {
       marinatedProteins: todayMarinatedProteins || null,
       bread: todayBread || null,
       highCostItems: todayHighCost || null,
+      inventory: Object.keys(inventory).length ? inventory : null,
       notes: '',
       alerts: []
     };
