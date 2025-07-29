@@ -114,6 +114,7 @@ function DailyEntryTab() {
     const [managementPin, setManagementPin] = React.useState('');
     const [showPinInput, setShowPinInput] = React.useState(false);
     const [duplicateWarning, setDuplicateWarning] = React.useState(false);
+    const [isUpdateMode, setIsUpdateMode] = React.useState(false);
     const [loadingExistingData, setLoadingExistingData] = React.useState(false);
     const [checkingExistingData, setCheckingExistingData] = React.useState(false);
     const [fieldsLocked, setFieldsLocked] = React.useState(false);
@@ -172,6 +173,7 @@ function DailyEntryTab() {
         setCheckingExistingData(true);
         setDuplicateWarning(false);
         setExistingEntry(null);
+        setIsUpdateMode(false);
         setFieldsLocked(true);
         setShowPinInput(false);
         setShowLoadExistingPin(false);
@@ -423,13 +425,13 @@ function DailyEntryTab() {
         e.preventDefault();
         
         // Check if updating existing entry
-        if (duplicateWarning && !showPinInput) {
+        if (isUpdateMode && !showPinInput) {
             setShowPinInput(true);
             return;
         }
-        
+
         // Validate PIN if updating
-        if (duplicateWarning && showPinInput) {
+        if (isUpdateMode && showPinInput) {
             if (!managementPin || managementPin.trim() === '') {
                 alert('Please enter management PIN');
                 return;
@@ -440,24 +442,52 @@ function DailyEntryTab() {
         
         try {
             // Prepare data for backend
+            const inventory = {
+                chicken_breast_remaining: formData.rawProteins.frozen_chicken_breast_remaining,
+                chicken_breast_received: formData.rawProteins.frozen_chicken_breast_received,
+                chicken_shawarma_remaining: formData.rawProteins.chicken_shawarma_remaining,
+                chicken_shawarma_received: formData.rawProteins.chicken_shawarma_received,
+                steak_remaining: formData.rawProteins.steak_remaining,
+                steak_received: formData.rawProteins.steak_received,
+
+                // Marinated proteins
+                fahita_chicken_remaining: formData.marinatedProteins.fahita_chicken_remaining,
+                fahita_chicken_received: formData.marinatedProteins.fahita_chicken_received,
+                chicken_sub_remaining: formData.marinatedProteins.chicken_sub_remaining,
+                chicken_sub_received: formData.marinatedProteins.chicken_sub_received,
+                spicy_strips_remaining: formData.marinatedProteins.spicy_strips_remaining,
+                spicy_strips_received: formData.marinatedProteins.spicy_strips_received,
+                original_strips_remaining: formData.marinatedProteins.original_strips_remaining,
+                original_strips_received: formData.marinatedProteins.original_strips_received,
+
+                saj_bread_remaining: formData.bread.saj_bread_remaining,
+                saj_bread_received: formData.bread.saj_bread_received,
+                pita_bread_remaining: formData.bread.pita_bread_remaining,
+                pita_bread_received: formData.bread.pita_bread_received,
+                bread_roll_remaining: formData.bread.bread_rolls_remaining,
+                bread_roll_received: formData.bread.bread_rolls_received,
+
+                cream_remaining: formData.highCostItems.cream_remaining,
+                cream_received: formData.highCostItems.cream_received,
+                mayo_remaining: formData.highCostItems.mayo_remaining,
+                mayo_received: formData.highCostItems.mayo_received
+            };
+
             const entryData = {
                 date: selectedDate,
                 shawarmaStack: {
                     ...formData.shawarmaStack,
-                    revenue: formData.sales.shawarma_revenue, // Get revenue from sales section
+                    revenue: formData.sales.shawarma_revenue,
                     loss_weight: calculatedMetrics && calculatedMetrics.shawarma ? calculatedMetrics.shawarma.lossWeight : 0,
                     loss_percentage: calculatedMetrics && calculatedMetrics.shawarma ? calculatedMetrics.shawarma.lossPercentage : 0,
                     total_waste_weight: calculatedMetrics && calculatedMetrics.shawarma ? calculatedMetrics.shawarma.totalWasteWeight : 0,
                     total_waste_percentage: calculatedMetrics && calculatedMetrics.shawarma ? calculatedMetrics.shawarma.totalWastePercentage : 0
                 },
                 sales: formData.sales,
-                rawProteins: formData.rawProteins,
-                marinatedProteins: formData.marinatedProteins,
-                bread: formData.bread,
-                highCostItems: formData.highCostItems,
+                inventory: inventory,
                 notes: formData.notes,
-                isUpdate: duplicateWarning,
-                managementPin: duplicateWarning ? managementPin : null
+                isUpdate: isUpdateMode,
+                managementPin: isUpdateMode ? managementPin : null
             };
             
             await google.script.run
@@ -520,6 +550,7 @@ function DailyEntryTab() {
             },
             notes: ''
         });
+        setIsUpdateMode(false);
     };
     
     const confirmLoadExistingData = async () => {
@@ -626,6 +657,7 @@ function DailyEntryTab() {
                                 }));
                                 
                                 setFieldsLocked(false);
+                                setIsUpdateMode(true);
                                 setDuplicateWarning(false);
                                 setShowLoadExistingPin(false);
                                 setLoadExistingPin('');
@@ -693,6 +725,7 @@ function DailyEntryTab() {
         });
         
         setDuplicateWarning(false);
+        setIsUpdateMode(false);
         setFieldsLocked(false);
         setShowLoadExistingPin(false);
         setLoadExistingPin('');
@@ -1453,9 +1486,9 @@ function DailyEntryTab() {
                             React.createElement('div', {
                                 className: 'animate-spin rounded-full h-4 w-4 border-b-2 border-white'
                             }),
-                            duplicateWarning ? 'Updating...' : 'Saving...'
+                            isUpdateMode ? 'Updating...' : 'Saving...'
                         ) : React.createElement(React.Fragment, null,
-                            fieldsLocked ? 'Load Data First' : (duplicateWarning ? 'Update Entry' : 'Save Daily Entry'),
+                            fieldsLocked ? 'Load Data First' : (isUpdateMode ? 'Update Entry' : 'Save Daily Entry'),
                             showPinInput && !managementPin && ' (PIN Required)'
                         )
                     )

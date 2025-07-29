@@ -563,7 +563,7 @@ function saveDailyEntry(entryData) {
     // Save Raw Proteins Data
     if (entryData.inventory && Object.keys(entryData.inventory).length > 0) {
       const rawProteinsSheet = ss.getSheetByName('DailyRawProteins');
-      
+
       const row = [
         Utilities.getUuid(), entryDate,
         parseFloat(entryData.inventory.chicken_breast_remaining) || 0,
@@ -574,8 +574,26 @@ function saveDailyEntry(entryData) {
         parseFloat(entryData.inventory.steak_received) || 0,
         userEmail, new Date(), new Date()
       ];
-      
+
       rawProteinsSheet.appendRow(row);
+
+      // Save Marinated Proteins Data
+      const marinatedSheet = ss.getSheetByName('DailyMarinatedProteins');
+
+      const marinatedRow = [
+        Utilities.getUuid(), entryDate,
+        parseFloat(entryData.inventory.fahita_chicken_remaining) || 0,
+        parseFloat(entryData.inventory.fahita_chicken_received) || 0,
+        parseFloat(entryData.inventory.chicken_sub_remaining) || 0,
+        parseFloat(entryData.inventory.chicken_sub_received) || 0,
+        parseFloat(entryData.inventory.spicy_strips_remaining) || 0,
+        parseFloat(entryData.inventory.spicy_strips_received) || 0,
+        parseFloat(entryData.inventory.original_strips_remaining) || 0,
+        parseFloat(entryData.inventory.original_strips_received) || 0,
+        userEmail, new Date(), new Date()
+      ];
+
+      marinatedSheet.appendRow(marinatedRow);
       
       // Save Bread Tracking Data
       const breadSheet = ss.getSheetByName('DailyBreadTracking');
