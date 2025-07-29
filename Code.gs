@@ -144,6 +144,16 @@ function doGet(e) {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
+// Entry point for employee web app
+function doGetEmployee(e) {
+  initializeDatabase();
+  return HtmlService.createTemplateFromFile('employee_index')
+    .evaluate()
+    .setTitle('Employee Daily Entry')
+    .addMetaTag('viewport','width=device-width, initial-scale=1')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
 // Include HTML files
 function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();

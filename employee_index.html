@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Daily Entry</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        olive: {
+                            50: '#f7f8f0',
+                            100: '#eef0dc',
+                            200: '#dde2bd',
+                            300: '#c6ce94',
+                            400: '#b0ba70',
+                            500: '#9ca653',
+                            600: '#84a35a',
+                            700: '#6a7c47',
+                            800: '#56653c',
+                            900: '#4a5735',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- React -->
+     <!-- React -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <!-- Babel for JSX transpilation -->
+ <!-- Replace the current Babel line with this older version -->
+<script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+</head>
+<body>
+    <div id="loading" class="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-olive-50 to-olive-100">
+        <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-olive-600 mb-4"></div>
+        <div class="text-olive-600 text-lg">Initializing Employee Entry...</div>
+    </div>
+
+    <div id="root" style="display:none;"></div>
+
+    <script>
+        console.log("Starting script execution");
+        
+        // Create global context
+        window.AppContext = React.createContext();
+
+        // Navigation Component - employee view
+        function Navigation(props) {
+            const tabs = [
+                { id: 'daily_entry', label: 'Daily Entry', icon: '📝' }
+                // later add 'weekly_entry' here
+            ];
+
+            return React.createElement('nav', {
+                className: 'bg-white shadow-sm sticky top-0 z-10 border-b border-gray-200'
+            }, 
+                React.createElement('div', {
+                    className: 'container mx-auto px-4 overflow-x-auto'
+                },
+                    React.createElement('div', {
+                        className: 'flex space-x-6'
+                    },
+                        tabs.map(tab => 
+                            React.createElement('button', {
+                                key: tab.id,
+                                onClick: () => props.onTabChange(tab.id),
+                                className: `flex items-center gap-2 px-4 py-4 text-sm font-medium border-b-2 transition-all duration-200 ${
+                                    props.activeTab === tab.id
+                                        ? 'text-olive-600 border-olive-600 bg-olive-50'
+                                        : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300 hover:bg-gray-50'
+                                }`
+                            },
+                                React.createElement('span', null, tab.icon),
+                                React.createElement('span', {
+                                    className: 'whitespace-nowrap'
+                                }, tab.label)
+                            )
+                        )
+                    )
+                )
+            );
+        }
+
+        function DailyEntryTab() {
+            if (typeof window.DailyEntryTab !== 'undefined' && window.DailyEntryTab !== DailyEntryTab) {
+                try {
+                    return React.createElement(window.DailyEntryTab);
+                } catch (error) {
+                    console.error("Error rendering external DailyEntryTab:", error);
+                }
+            }
+            
+            return React.createElement('div', {
+                className: 'bg-white rounded-lg shadow p-6'
+            },
+                React.createElement('h2', {
+                    className: 'text-xl font-semibold mb-4'
+                }, 'Daily Entry - Loading...'),
+                React.createElement('p', {
+                    className: 'text-gray-600'
+                }, 'Daily Entry form is being loaded. Please wait...')
+            );
+        }
+
+        function App() {
+            const [state, setState] = React.useState({
+                activeTab: 'daily_entry',
+                loading: true,
+                initialized: false,
+                error: null,
+                loadingMessage: 'Initializing employee entry...',
+                data: {
+                    ingredients: [],
+                    products: [],
+                    recipes: [],
+                    orders: [],
+                    orderItems: [],
+                    employees: [],
+                    suppliers: [],
+                    dailyShawarmaStack: [],
+                    dailySales: [],
+                    dailyInventoryCount: [],
+                    dailyProductSales: []
+                }
+            });
+
+            const loadData = () => {
+                setState(prev => ({
+                    ...prev,
+                    loading: true,
+                    loadingMessage: 'Loading restaurant data...'
+                }));
+
+                // Simulate data loading for now
+                setTimeout(() => {
+                    setState(prev => ({
+                        ...prev,
+                        loading: false,
+                        initialized: true,
+                        loadingMessage: ''
+                    }));
+                }, 2000);
+            };
+
+            React.useEffect(() => {
+                loadData();
+            }, []);
+
+            if (state.loading) {
+                return React.createElement('div', {
+                    className: 'min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-olive-50 to-olive-100'
+                },
+                    React.createElement('div', {
+                        className: 'animate-spin rounded-full h-16 w-16 border-b-2 border-olive-600 mb-4'
+                    }),
+                    React.createElement('div', {
+                        className: 'text-olive-600 text-lg'
+                    }, state.loadingMessage)
+                );
+            }
+
+            if (state.error) {
+                return React.createElement('div', {
+                    className: 'min-h-screen flex items-center justify-center bg-red-50'
+                },
+                    React.createElement('div', {
+                        className: 'text-center'
+                    },
+                        React.createElement('h1', {
+                            className: 'text-2xl font-bold text-red-800 mb-4'
+                        }, 'Error'),
+                        React.createElement('p', {
+                            className: 'text-red-600 mb-4'
+                        }, state.error),
+                        React.createElement('button', {
+                            onClick: loadData,
+                            className: 'bg-olive-600 text-white px-6 py-2 rounded hover:bg-olive-700'
+                        }, 'Retry')
+                    )
+                );
+            }
+
+            const renderActiveTab = () => {
+                try {
+                    switch (state.activeTab) {
+                        case 'daily_entry':
+                            return React.createElement(DailyEntryTab);
+                        default:
+                            return React.createElement(DailyEntryTab);
+                    }
+                } catch (error) {
+                    console.error("Error rendering tab:", error);
+                    return React.createElement('div', {
+                        className: 'bg-red-50 border border-red-200 rounded-lg p-6'
+                    },
+                        React.createElement('h2', {
+                            className: 'text-red-800 font-semibold mb-2'
+                        }, 'Error Loading Tab'),
+                        React.createElement('p', {
+                            className: 'text-red-600'
+                        }, 'Please refresh the page or try a different tab.')
+                    );
+                }
+            };
+
+            return React.createElement(window.AppContext.Provider, {
+                value: { state, setState }
+            },
+                React.createElement('div', {
+                    className: 'min-h-screen bg-gradient-to-br from-olive-50 to-olive-100'
+                },
+                    React.createElement('header', {
+                        className: 'bg-white shadow-sm'
+                    },
+                        React.createElement('div', {
+                            className: 'container mx-auto px-4 py-4'
+                        },
+                            React.createElement('h1', {
+                                className: 'text-2xl font-bold text-olive-800'
+                            }, 'Employee Daily Entry'),
+                            React.createElement('p', {
+                                className: 'text-olive-600'
+                            }, 'Record your daily counts')
+                        )
+                    ),
+
+                    React.createElement(Navigation, {
+                        activeTab: state.activeTab,
+                        onTabChange: (tab) => setState(prev => ({ ...prev, activeTab: tab }))
+                    }),
+
+                    React.createElement('main', {
+                        className: 'container mx-auto px-4 py-8'
+                    },
+                        !state.initialized ? React.createElement('div', {
+                            className: 'text-center py-12'
+                        },
+                            React.createElement('p', {
+                                className: 'text-gray-500'
+                            }, 'Initializing restaurant system...')
+                        ) : renderActiveTab()
+                    )
+                )
+            );
+        }
+
+        // Define the initialization function
+        window.initializeRestaurantApp = function() {
+            console.log("Initializing React app...");
+            try {
+                ReactDOM.render(React.createElement(App), document.getElementById('root'));
+                console.log("App rendered successfully");
+            } catch (error) {
+                console.error("Error rendering app:", error);
+            }
+        };
+
+        console.log("All components defined");
+    </script>
+
+    <!-- Include component files -->
+    <?!= include('DailyEntryTab'); ?>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log("DOM loaded");
+            
+            setTimeout(function() {
+                if (typeof window.initializeRestaurantApp === 'function') {
+                    console.log("Calling initializeRestaurantApp");
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('root').style.display = 'block';
+                    window.initializeRestaurantApp();
+                } else {
+                    console.error("initializeRestaurantApp not found");
+                }
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
