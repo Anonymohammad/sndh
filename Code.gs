@@ -722,97 +722,97 @@ function saveProductSales(salesData, date) {
 function generateDailyReport(date) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    
-    // Fix the date comparison - convert input date to proper format
-    let targetDateString;
-    if (date) {
-      // If date is passed as string like "2025-07-25", convert it properly
-      const targetDate = new Date(date + 'T12:00:00'); // Add time to avoid timezone issues
-      targetDateString = targetDate.toDateString();
-    } else {
-      targetDateString = new Date().toDateString();
-    }
-    
-    console.log("=== FIXED DATE COMPARISON ===");
-    console.log("Input date:", date);
-    console.log("Target date string:", targetDateString);
-    
-    // Get all relevant data
+
+    // Normalize requested date
+    const requestedDate = date
+      ? new Date(date + 'T00:00:00')
+      : new Date();
+    const requestedIso = requestedDate.toISOString().split('T')[0];
+
+    // Date string used in sheets (toDateString for reliable comparison)
+    const targetDateString = new Date(requestedIso + 'T12:00:00').toDateString();
+
+    // Gather data from sheets
     const shawarmaData = getSheetData('DailyShawarmaStack');
     const salesData = getSheetData('DailySales');
     const rawProteinsData = getSheetData('DailyRawProteins');
     const marinatedProteinsData = getSheetData('DailyMarinatedProteins');
     const breadData = getSheetData('DailyBreadTracking');
     const highCostData = getSheetData('DailyHighCostItems');
-    
-    // FIXED DATE FILTERING - Handle timezone properly
-    const todayShawarma = shawarmaData.find(row => {
-      if (!row.date) return false;
-      const rowDate = new Date(row.date);
-      const rowDateString = rowDate.toDateString();
-      console.log("Comparing shawarma:", rowDateString, "vs", targetDateString);
-      return rowDateString === targetDateString;
-    });
-    
-    const todaySales = salesData.find(row => {
-      if (!row.sales_date) return false;
-      const rowDate = new Date(row.sales_date);
-      const rowDateString = rowDate.toDateString();
-      console.log("Comparing sales:", rowDateString, "vs", targetDateString);
-      return rowDateString === targetDateString;
-    });
-    
-    const todayRawProteins = rawProteinsData.find(row => {
-      if (!row.count_date) return false;
-      const rowDate = new Date(row.count_date);
-      const rowDateString = rowDate.toDateString();
-      return rowDateString === targetDateString;
-    });
-    
-    const todayMarinatedProteins = marinatedProteinsData.find(row => {
-      if (!row.count_date) return false;
-      const rowDate = new Date(row.count_date);
-      const rowDateString = rowDate.toDateString();
-      return rowDateString === targetDateString;
-    });
-    
-    const todayBread = breadData.find(row => {
-      if (!row.count_date) return false;
-      const rowDate = new Date(row.count_date);
-      const rowDateString = rowDate.toDateString();
-      return rowDateString === targetDateString;
-    });
-    
-    const todayHighCost = highCostData.find(row => {
-      if (!row.count_date) return false;
-      const rowDate = new Date(row.count_date);
-      const rowDateString = rowDate.toDateString();
-      return rowDateString === targetDateString;
-    });
-    
-    console.log("RESULTS:");
-    console.log("Found shawarma:", !!todayShawarma);
-    console.log("Found sales:", !!todaySales);
-    console.log("Found raw proteins:", !!todayRawProteins);
-    console.log("Found bread:", !!todayBread);
-    
-    // Build response
+    const productSalesData = getSheetData('DailyProductSales');
+
+    // Filter rows matching the target date
+    const todayShawarma = shawarmaData.find(r => r.date && new Date(r.date).toDateString() === targetDateString) || null;
+    const todaySales = salesData.find(r => r.sales_date && new Date(r.sales_date).toDateString() === targetDateString) || null;
+    const todayRawProteins = rawProteinsData.find(r => r.count_date && new Date(r.count_date).toDateString() === targetDateString) || null;
+    const todayMarinatedProteins = marinatedProteinsData.find(r => r.count_date && new Date(r.count_date).toDateString() === targetDateString) || null;
+    const todayBread = breadData.find(r => r.count_date && new Date(r.count_date).toDateString() === targetDateString) || null;
+    const todayHighCost = highCostData.find(r => r.count_date && new Date(r.count_date).toDateString() === targetDateString) || null;
+    const todayProductSales = productSalesData.filter(r => r.sales_date && new Date(r.sales_date).toDateString() === targetDateString);
+
+    // Merge inventory data from multiple tables
+    const inventory = {};
+    if (todayRawProteins) {
+      inventory.frozen_chicken_breast_remaining = todayRawProteins.frozen_chicken_breast_remaining;
+      inventory.frozen_chicken_breast_received = todayRawProteins.frozen_chicken_breast_received;
+      inventory.chicken_shawarma_remaining = todayRawProteins.chicken_shawarma_remaining;
+      inventory.chicken_shawarma_received = todayRawProteins.chicken_shawarma_received;
+      inventory.steak_remaining = todayRawProteins.steak_remaining;
+      inventory.steak_received = todayRawProteins.steak_received;
+    }
+    if (todayMarinatedProteins) {
+      inventory.fahita_chicken_remaining = todayMarinatedProteins.fahita_chicken_remaining;
+      inventory.fahita_chicken_received = todayMarinatedProteins.fahita_chicken_received;
+      inventory.chicken_sub_remaining = todayMarinatedProteins.chicken_sub_remaining;
+      inventory.chicken_sub_received = todayMarinatedProteins.chicken_sub_received;
+      inventory.spicy_strips_remaining = todayMarinatedProteins.spicy_strips_remaining;
+      inventory.spicy_strips_received = todayMarinatedProteins.spicy_strips_received;
+      inventory.original_strips_remaining = todayMarinatedProteins.original_strips_remaining;
+      inventory.original_strips_received = todayMarinatedProteins.original_strips_received;
+    }
+    if (todayBread) {
+      inventory.saj_bread_remaining = todayBread.saj_bread_remaining;
+      inventory.saj_bread_received = todayBread.saj_bread_received;
+      inventory.pita_bread_remaining = todayBread.pita_bread_remaining;
+      inventory.pita_bread_received = todayBread.pita_bread_received;
+      inventory.bread_rolls_remaining = todayBread.bread_rolls_remaining;
+      inventory.bread_rolls_received = todayBread.bread_rolls_received;
+    }
+    if (todayHighCost) {
+      inventory.cream_remaining = todayHighCost.cream_remaining;
+      inventory.cream_received = todayHighCost.cream_received;
+      inventory.mayo_remaining = todayHighCost.mayo_remaining;
+      inventory.mayo_received = todayHighCost.mayo_received;
+    }
+
+    // Flags indicating if data was found
+    const data_found = {
+      shawarma: !!todayShawarma,
+      sales: !!todaySales,
+      rawProteins: !!todayRawProteins,
+      marinatedProteins: !!todayMarinatedProteins,
+      bread: !!todayBread,
+      highCostItems: !!todayHighCost,
+      productSales: todayProductSales.length > 0
+    };
+
+    // Build report
     const report = {
+      requested_date: requestedIso,
       date: targetDateString,
-      dataFound: !!(todayShawarma || todaySales || todayRawProteins || todayBread || todayMarinatedProteins || todayHighCost),
-      shawarma: todayShawarma || null,
-      sales: todaySales || null,
-      rawProteins: todayRawProteins || null,
-      marinatedProteins: todayMarinatedProteins || null,
-      bread: todayBread || null,
-      highCostItems: todayHighCost || null,
+      data_found: data_found,
+      inventory: inventory,
+      productSales: todayProductSales,
+      shawarma: todayShawarma,
+      sales: todaySales,
+      rawProteins: todayRawProteins,
+      marinatedProteins: todayMarinatedProteins,
+      bread: todayBread,
+      highCostItems: todayHighCost,
       notes: '',
       alerts: []
     };
-    
-    console.log("Final report dataFound:", report.dataFound);
-    console.log("=== END FIXED DATE COMPARISON ===");
-    
+
     return JSON.stringify(report);
     
   } catch (error) {
