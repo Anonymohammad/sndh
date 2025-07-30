@@ -109,7 +109,7 @@ const REQUIRED_SHEETS = {
   // Employee Management
   Employees: {
     requiredHeaders: [
-      'id', 'name', 'email', 'phone', 'role', 'hourly_rate', 'hire_date',
+      'id', 'name', 'email', 'pin_hash', 'phone', 'role', 'hourly_rate', 'hire_date',
       'active', 'created_at', 'updated_at'
     ]
   },
@@ -172,6 +172,9 @@ function initializeDatabase() {
       sheet.autoResizeColumns(1, config.requiredHeaders.length);
     }
   });
+
+  // Ensure Employees sheet structure is up to date
+  ensureEmployeeSheetStructure();
   
   // Initialize default data if new database
   if (isNewDatabase) {
@@ -267,11 +270,11 @@ function initializeEmployees() {
   ];
   
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Employees');
-  
+
   employees.forEach(emp => {
     const id = Utilities.getUuid();
     const row = [
-      id, emp.name, emp.email, '', emp.role, emp.hourly_rate, new Date(),
+      id, emp.name, emp.email, '', '', emp.role, emp.hourly_rate, new Date(),
       true, new Date(), new Date()
     ];
     sheet.appendRow(row);
@@ -412,18 +415,59 @@ function getManagementPin() {
 // Add this function to your Code.gs if it's missing
 function validateManagementPin(inputPin) {
   try {
-    console.log('PIN validation - Input:', inputPin);
+    const employee = findEmployeeByPin(inputPin);
+    if (employee) {
+      return true;
+    }
+
     const correctPin = getManagementPin();
-    console.log('PIN validation - Correct:', correctPin);
-    
     const isValid = String(inputPin).trim() === String(correctPin).trim();
-    console.log('PIN validation - Result:', isValid);
-    
     return isValid;
   } catch (error) {
     console.log('PIN validation error:', error);
     return false;
   }
+}
+
+// Identify an employee record by PIN
+function findEmployeeByPin(pin) {
+  if (!pin) return null;
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Employees');
+  if (!sheet) return null;
+
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const idIdx = headers.indexOf('id');
+  const nameIdx = headers.indexOf('name');
+  const emailIdx = headers.indexOf('email');
+  const pinHashIdx = headers.indexOf('pin_hash');
+  const pinIdx = headers.indexOf('pin');
+  if (pinHashIdx === -1 && pinIdx === -1) return null;
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return null;
+  const data = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
+  const hashedInput = hashString(String(pin).trim());
+
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i];
+    const storedHash = pinHashIdx !== -1
+      ? String(row[pinHashIdx]).trim()
+      : hashString(String(row[pinIdx]).trim());
+    if (storedHash === hashedInput) {
+      return { id: row[idIdx], name: row[nameIdx], email: row[emailIdx] };
+    }
+  }
+
+  return null;
+}
+
+// Exposed function to authenticate a user by PIN
+function authenticateEmployeeByPin(pin) {
+  const emp = findEmployeeByPin(pin);
+  if (emp) {
+    return JSON.stringify({ success: true, employee: emp });
+  }
+  return JSON.stringify({ success: false });
 }
 
 // NEW: Check if entry exists for given date
@@ -732,6 +776,75 @@ function parseInputDate(date) {
 
   // Fallback to default Date parsing
   return new Date(date);
+}
+
+// Ensure the Employees sheet contains a pin_hash column
+function ensureEmployeeSheetStructure() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Employees');
+  if (!sheet) return;
+
+  let headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const required = REQUIRED_SHEETS.Employees.requiredHeaders.slice();
+  let data = [];
+  const lastRow = sheet.getLastRow();
+  if (lastRow > 1) {
+    data = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
+  }
+
+  const emailIdx = headers.indexOf('email');
+  let pinHashIdx = headers.indexOf('pin_hash');
+  let pinIdx = headers.indexOf('pin');
+  let needsRewrite = false;
+
+  if (pinHashIdx === -1 && emailIdx !== -1) {
+    sheet.insertColumnAfter(emailIdx + 1);
+    headers.splice(emailIdx + 1, 0, 'pin_hash');
+    pinHashIdx = emailIdx + 1;
+    if (data.length) {
+      data.forEach(row => row.splice(pinHashIdx, 0, ''));
+    }
+    needsRewrite = true;
+  }
+
+  // Migrate any existing plain PIN column
+  pinIdx = headers.indexOf('pin');
+  if (pinIdx !== -1 && data.length) {
+    const pins = sheet.getRange(2, pinIdx + 1, data.length).getValues();
+    pins.forEach((r, i) => {
+      data[i][pinHashIdx] = r[0] ? hashString(String(r[0]).trim()) : '';
+    });
+    sheet.deleteColumn(pinIdx + 1);
+    headers.splice(pinIdx, 1);
+    data.forEach(row => row.splice(pinIdx, 1));
+    needsRewrite = true;
+  }
+
+  // Reorder columns to required header order
+  if (headers.join() !== required.join()) {
+    const map = {};
+    headers.forEach((h, i) => { map[h] = i; });
+    data = data.map(row => required.map(h => row[map[h]] !== undefined ? row[map[h]] : ''));
+    headers = required;
+    needsRewrite = true;
+  }
+
+  if (needsRewrite) {
+    sheet.clear();
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers])
+         .setBackground('#E6E6E6').setFontWeight('bold');
+    if (data.length) {
+      sheet.getRange(2, 1, data.length, headers.length).setValues(data);
+    }
+    sheet.setFrozenRows(1);
+    sheet.autoResizeColumns(1, headers.length);
+  }
+}
+
+// Simple SHA256 hashing helper
+function hashString(value) {
+  if (!value) return '';
+  const raw = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(value));
+  return raw.map(b => ('0' + (b & 0xFF).toString(16)).slice(-2)).join('');
 }
 
 function generateDailyReport(date) {
