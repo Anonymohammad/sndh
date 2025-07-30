@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Daily Entry</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+</head>
+<body class="bg-olive-50">
+<div id="root" class="p-4"></div>
+<script type="text/babel">
+function PinLogin({onSuccess}) {
+    const [pin, setPin] = React.useState('');
+    const [error, setError] = React.useState(false);
+
+    const submitPin = () => {
+        if (!pin) return;
+        google.script.run.withSuccessHandler(employeeId => {
+            if (employeeId) {
+                setError(false);
+                onSuccess(employeeId);
+            } else {
+                setError(true);
+            }
+        }).validateEmployeePin(pin);
+    };
+
+    return (
+        <div className="max-w-sm mx-auto mt-20 bg-white p-6 rounded shadow">
+            <h1 className="text-xl font-semibold mb-4 text-center">Employee Login</h1>
+            <input
+                type="password"
+                value={pin}
+                onChange={e => setPin(e.target.value)}
+                className="w-full border px-3 py-2 mb-4"
+                placeholder="Enter PIN"
+            />
+            {error && <p className="text-red-600 text-sm mb-2">Invalid PIN</p>}
+            <button onClick={submitPin} className="w-full bg-olive-600 text-white py-2 rounded">Login</button>
+        </div>
+    );
+}
+
+function DailyEntryForm({employeeId}) {
+    const [date, setDate] = React.useState(new Date().toISOString().split('T')[0]);
+    const [data, setData] = React.useState({
+        starting_weight: '',
+        orders_weight: '',
+        shaving_weight: '',
+        staff_meals_weight: '',
+        remaining_weight: '',
+        revenue: ''
+    });
+
+    const submit = () => {
+        const entry = {
+            date: date,
+            shawarmaStack: data,
+            sales: { shawarma_revenue: data.revenue, total_revenue: '' },
+            inventory: {},
+            notes: '',
+            employeeId: employeeId
+        };
+        google.script.run.withSuccessHandler(res => {
+            alert(JSON.parse(res).message);
+            setData({starting_weight:'',orders_weight:'',shaving_weight:'',staff_meals_weight:'',remaining_weight:'',revenue:''});
+        }).saveDailyEntry(entry);
+    };
+
+    const onChange = (field, value) => setData(prev => ({...prev, [field]: value}));
+
+    return (
+        <div className="space-y-4">
+            <div>
+                <label className="block text-sm font-medium">Date</label>
+                <input type="date" value={date} max={new Date().toISOString().split('T')[0]} onChange={e=>setDate(e.target.value)} className="border px-3 py-2 w-full" />
+            </div>
+            <div>
+                <label className="block text-sm font-medium">Starting Weight (kg)</label>
+                <input type="number" value={data.starting_weight} onChange={e=>onChange('starting_weight', e.target.value)} className="border px-3 py-2 w-full" />
+            </div>
+            <div>
+                <label className="block text-sm font-medium">Orders Weight (kg)</label>
+                <input type="number" value={data.orders_weight} onChange={e=>onChange('orders_weight', e.target.value)} className="border px-3 py-2 w-full" />
+            </div>
+            <div>
+                <label className="block text-sm font-medium">Shaving Weight (kg)</label>
+                <input type="number" value={data.shaving_weight} onChange={e=>onChange('shaving_weight', e.target.value)} className="border px-3 py-2 w-full" />
+            </div>
+            <div>
+                <label className="block text-sm font-medium">Staff Meals (kg)</label>
+                <input type="number" value={data.staff_meals_weight} onChange={e=>onChange('staff_meals_weight', e.target.value)} className="border px-3 py-2 w-full" />
+            </div>
+            <div>
+                <label className="block text-sm font-medium">Remaining Weight (kg)</label>
+                <input type="number" value={data.remaining_weight} onChange={e=>onChange('remaining_weight', e.target.value)} className="border px-3 py-2 w-full" />
+            </div>
+            <div>
+                <label className="block text-sm font-medium">Shawarma Revenue (QAR)</label>
+                <input type="number" value={data.revenue} onChange={e=>onChange('revenue', e.target.value)} className="border px-3 py-2 w-full" />
+            </div>
+            <button onClick={submit} className="bg-olive-600 text-white px-4 py-2 rounded">Submit</button>
+        </div>
+    );
+}
+
+function App() {
+    const [loggedIn, setLoggedIn] = React.useState(false);
+    const [employeeId, setEmployeeId] = React.useState(null);
+
+    const handleLogin = (id) => {
+        setEmployeeId(id);
+        setLoggedIn(true);
+    };
+
+    return loggedIn ? <DailyEntryForm employeeId={employeeId} /> : <PinLogin onSuccess={handleLogin} />;
+}
+
+ReactDOM.render(<App />, document.getElementById('root'));
+</script>
+</body>
+</html>
