@@ -1,5 +1,5 @@
 <script type="text/babel">
-function DailyEntryTab() {
+function DailyEntryTab({ showMetrics = true }) {
     const { state, setState } = React.useContext(window.AppContext);
     const [pinError, setPinError] = React.useState(false);
     const [pinAttempted, setPinAttempted] = React.useState(false);
@@ -1121,7 +1121,7 @@ const entryData = {
                     ),
                     
                     // Enhanced Calculated Metrics Display with dynamic ranges and alerts
-                    calculatedMetrics && React.createElement('div', {
+                    showMetrics && calculatedMetrics && React.createElement('div', {
                         className: 'mt-6 space-y-4'
                     },
                         // Alerts section
@@ -1397,7 +1397,7 @@ const entryData = {
                     ),
                     
                     // Sales Metrics Display
-                    calculatedMetrics && calculatedMetrics.sales && React.createElement('div', {
+                    showMetrics && calculatedMetrics && calculatedMetrics.sales && React.createElement('div', {
                         className: 'mt-4 p-4 bg-gray-50 rounded-lg'
                     },
                         React.createElement('h4', {
