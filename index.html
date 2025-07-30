@@ -98,6 +98,64 @@
             );
         }
 
+        // Simple login screen that authenticates by PIN only
+        function LoginScreen(props) {
+            const [pin, setPin] = React.useState('');
+            const [error, setError] = React.useState(null);
+
+            const submitLogin = () => {
+                if (!pin) return;
+                google.script.run
+                    .withSuccessHandler(res => {
+                        try {
+                            const data = JSON.parse(res);
+                            if (data.success) {
+                                localStorage.setItem('employee', JSON.stringify(data.employee));
+                                props.onLogin(data.employee);
+                            } else {
+                                setError('Invalid PIN');
+                            }
+                        } catch (e) {
+                            console.error('Auth parse error', e);
+                            setError('Login failed');
+                        }
+                    })
+                    .withFailureHandler(err => {
+                        console.error('Auth error', err);
+                        setError('Login failed');
+                    })
+                    .authenticateEmployeeByPin(pin);
+            };
+
+            return React.createElement('div', {
+                    className: 'min-h-screen flex items-center justify-center bg-gradient-to-br from-olive-50 to-olive-100'
+                },
+                React.createElement('div', {
+                    className: 'bg-white rounded-lg shadow p-6 w-80 space-y-4'
+                },
+                    React.createElement('h2', {
+                        className: 'text-xl font-semibold text-center'
+                    }, 'Enter PIN'),
+                    React.createElement('input', {
+                        type: 'password',
+                        value: pin,
+                        onChange: e => { setPin(e.target.value); if (error) setError(null); },
+                        onKeyPress: e => { if (e.key === 'Enter') submitLogin(); },
+                        className: 'w-full border rounded p-2',
+                        placeholder: 'PIN'
+                    }),
+                    error && React.createElement('p', {
+                        className: 'text-sm text-red-600'
+                    }, error),
+                    React.createElement('button', {
+                        type: 'button',
+                        onClick: submitLogin,
+                        className: 'w-full bg-olive-600 text-white rounded py-2'
+                    }, 'Login')
+                )
+            );
+        }
+
         // Home Tab Dashboard - RESTORED original working version
         function HomeTab(props) {
             const { state } = React.useContext(window.AppContext);
@@ -1330,6 +1388,7 @@
                 initialized: false,
                 error: null,
                 loadingMessage: 'Initializing restaurant management system...',
+                currentEmployee: null,
                 data: {
                     ingredients: [],
                     products: [],
@@ -1363,9 +1422,36 @@
                 }, 2000);
             };
 
+            const handleLogin = (emp) => {
+                setState(prev => ({ ...prev, currentEmployee: emp }));
+            };
+
+            const handleLogout = () => {
+                localStorage.removeItem('employee');
+                setState(prev => ({ ...prev, currentEmployee: null }));
+            };
+
             React.useEffect(() => {
-                loadData();
+                const stored = localStorage.getItem('employee');
+                if (stored) {
+                    try {
+                        const emp = JSON.parse(stored);
+                        setState(prev => ({ ...prev, currentEmployee: emp }));
+                    } catch (e) {
+                        console.error('Failed to parse stored employee', e);
+                    }
+                }
             }, []);
+
+            React.useEffect(() => {
+                if (state.currentEmployee) {
+                    loadData();
+                }
+            }, [state.currentEmployee]);
+
+            if (!state.currentEmployee) {
+                return React.createElement(LoginScreen, { onLogin: handleLogin });
+            }
 
             if (state.loading) {
                 return React.createElement('div', {
@@ -1456,14 +1542,24 @@
                         className: 'bg-white shadow-sm'
                     },
                         React.createElement('div', {
-                            className: 'container mx-auto px-4 py-4'
+                            className: 'container mx-auto px-4 py-4 flex justify-between items-center'
                         },
-                            React.createElement('h1', {
-                                className: 'text-2xl font-bold text-olive-800'
-                            }, 'Restaurant Management System'),
-                            React.createElement('p', {
-                                className: 'text-olive-600'
-                            }, 'Complete restaurant operations control')
+                            React.createElement('div', null,
+                                React.createElement('h1', {
+                                    className: 'text-2xl font-bold text-olive-800'
+                                }, 'Restaurant Management System'),
+                                React.createElement('p', {
+                                    className: 'text-olive-600'
+                                }, 'Complete restaurant operations control')
+                            ),
+                            React.createElement('div', { className: 'text-right' },
+                                React.createElement('span', { className: 'mr-2 text-sm text-gray-600' }, state.currentEmployee?.name || ''),
+                                React.createElement('button', {
+                                    type: 'button',
+                                    onClick: handleLogout,
+                                    className: 'text-sm text-olive-600 underline'
+                                }, 'Log out')
+                            )
                         )
                     ),
 
