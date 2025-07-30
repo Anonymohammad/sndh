@@ -109,7 +109,7 @@ const REQUIRED_SHEETS = {
   // Employee Management
   Employees: {
     requiredHeaders: [
-      'id', 'name', 'email', 'phone', 'role', 'hourly_rate', 'hire_date',
+      'id', 'name', 'email', 'pin', 'phone', 'role', 'hourly_rate', 'hire_date',
       'active', 'created_at', 'updated_at'
     ]
   },
@@ -133,10 +133,17 @@ const REQUIRED_SHEETS = {
 // Entry point for web app
 function doGet(e) {
   const userEmail = Session.getEffectiveUser().getEmail();
-  
+
   // Initialize database on first access
   initializeDatabase();
-  
+
+  if (e && e.parameter && e.parameter.app === 'employee') {
+    return HtmlService.createHtmlOutputFromFile('employee-app')
+      .setTitle('Employee Daily Entry')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  }
+
   return HtmlService.createTemplateFromFile('index')
     .evaluate()
     .setTitle('Restaurant Management System')
@@ -147,6 +154,15 @@ function doGet(e) {
 // Include HTML files
 function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
+}
+
+// Serve the simplified employee app
+function doGetEmployee() {
+  initializeDatabase();
+  return HtmlService.createHtmlOutputFromFile('employee-app')
+    .setTitle('Employee Daily Entry')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
 // Initialize database structure
@@ -261,9 +277,9 @@ function initializeProducts() {
 // Initialize default employees
 function initializeEmployees() {
   const employees = [
-    {name: 'Admin User', email: Session.getEffectiveUser().getEmail(), role: 'admin', hourly_rate: 0},
-    {name: 'Manager', email: 'manager@restaurant.com', role: 'manager', hourly_rate: 25},
-    {name: 'Staff Member', email: 'staff@restaurant.com', role: 'employee', hourly_rate: 15}
+    {name: 'Admin User', email: Session.getEffectiveUser().getEmail(), pin: '1111', role: 'admin', hourly_rate: 0},
+    {name: 'Manager', email: 'manager@restaurant.com', pin: '2222', role: 'manager', hourly_rate: 25},
+    {name: 'Staff Member', email: 'staff@restaurant.com', pin: '3333', role: 'employee', hourly_rate: 15}
   ];
   
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Employees');
@@ -271,7 +287,7 @@ function initializeEmployees() {
   employees.forEach(emp => {
     const id = Utilities.getUuid();
     const row = [
-      id, emp.name, emp.email, '', emp.role, emp.hourly_rate, new Date(),
+      id, emp.name, emp.email, emp.pin || '', '', emp.role, emp.hourly_rate, new Date(),
       true, new Date(), new Date()
     ];
     sheet.appendRow(row);
@@ -513,6 +529,7 @@ function saveDailyEntry(entryData) {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const entryDate = entryData.date ? new Date(entryData.date).toDateString() : new Date().toDateString();
     const userEmail = Session.getEffectiveUser().getEmail();
+    const employeeId = entryData.employeeId || userEmail;
     
     // Check if this is an update
     if (entryData.isUpdate) {
@@ -554,7 +571,7 @@ function saveDailyEntry(entryData) {
       const row = [
         Utilities.getUuid(), entryDate, startingWeight, stackCost, shavingWeight,
         staffMealsWeight, ordersWeight, remainingWeight, lossWeight, lossPercentage,
-        revenue, profitPerKg, userEmail, new Date(), new Date()
+        revenue, profitPerKg, employeeId, new Date(), new Date()
       ];
       
       shawarmaSheet.appendRow(row);
@@ -572,7 +589,7 @@ function saveDailyEntry(entryData) {
         parseFloat(entryData.inventory.chicken_shawarma_received) || 0,
         parseFloat(entryData.inventory.steak_remaining) || 0,
         parseFloat(entryData.inventory.steak_received) || 0,
-        userEmail, new Date(), new Date()
+        employeeId, new Date(), new Date()
       ];
 
       rawProteinsSheet.appendRow(row);
@@ -590,7 +607,7 @@ function saveDailyEntry(entryData) {
         parseFloat(entryData.inventory.spicy_strips_received) || 0,
         parseFloat(entryData.inventory.original_strips_remaining) || 0,
         parseFloat(entryData.inventory.original_strips_received) || 0,
-        userEmail, new Date(), new Date()
+        employeeId, new Date(), new Date()
       ];
 
       marinatedSheet.appendRow(marinatedRow);
@@ -606,7 +623,7 @@ function saveDailyEntry(entryData) {
         parseInt(entryData.inventory.pita_bread_received) || 0,
         parseInt(entryData.inventory.bread_roll_remaining) || 0,
         parseInt(entryData.inventory.bread_roll_received) || 0,
-        userEmail, new Date(), new Date()
+        employeeId, new Date(), new Date()
       ];
       
       breadSheet.appendRow(breadRow);
@@ -620,7 +637,7 @@ function saveDailyEntry(entryData) {
         parseFloat(entryData.inventory.cream_received) || 0,
         parseFloat(entryData.inventory.mayo_remaining) || 0,
         parseFloat(entryData.inventory.mayo_received) || 0,
-        userEmail, new Date(), new Date()
+        employeeId, new Date(), new Date()
       ];
       
       highCostSheet.appendRow(highCostRow);
@@ -655,7 +672,7 @@ function saveDailyEntry(entryData) {
       
       const row = [
         Utilities.getUuid(), entryDate, totalRevenue, shawarmaRevenue, calculatedFoodCost,
-        foodCostPercentage, totalOrders, userEmail, new Date(), new Date()
+        foodCostPercentage, totalOrders, employeeId, new Date(), new Date()
       ];
       
       salesSheet.appendRow(row);
@@ -732,6 +749,33 @@ function parseInputDate(date) {
 
   // Fallback to default Date parsing
   return new Date(date);
+}
+
+// Validate employee PIN and return employee ID if valid
+function validateEmployeePin(inputPin) {
+  try {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Employees');
+    if (!sheet) return false;
+
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const pinIndex = headers.indexOf('pin');
+    const idIndex = headers.indexOf('id');
+
+    if (pinIndex === -1 || idIndex === -1) return false;
+
+    for (let i = 1; i < data.length; i++) {
+      const rowPin = String(data[i][pinIndex]).trim();
+      if (rowPin && rowPin === String(inputPin).trim()) {
+        return data[i][idIndex];
+      }
+    }
+
+    return false;
+  } catch (error) {
+    Logger.log('Error validating employee PIN: ' + error.toString());
+    return false;
+  }
 }
 
 function generateDailyReport(date) {
