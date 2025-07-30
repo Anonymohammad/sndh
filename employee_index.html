@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Daily Entry</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        olive: {
+                            50: '#f7f8f0',
+                            100: '#eef0dc',
+                            200: '#dde2bd',
+                            300: '#c6ce94',
+                            400: '#b0ba70',
+                            500: '#9ca653',
+                            600: '#84a35a',
+                            700: '#6a7c47',
+                            800: '#56653c',
+                            900: '#4a5735',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+</head>
+<body>
+    <div id="loading" class="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-olive-50 to-olive-100">
+        <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-olive-600 mb-4"></div>
+        <div class="text-olive-600 text-lg">Loading...</div>
+    </div>
+    <div id="root" style="display:none;"></div>
+
+    <script type="text/babel">
+        window.AppContext = React.createContext();
+
+        function EmployeeApp() {
+            const [state, setState] = React.useState({});
+            return React.createElement(window.AppContext.Provider, { value: { state, setState } },
+                React.createElement('div', { className: 'container mx-auto px-4 py-8' },
+                    React.createElement(DailyEntryTab, { showMetrics: false })
+                )
+            );
+        }
+
+        window.initializeEmployeeApp = function() {
+            ReactDOM.render(React.createElement(EmployeeApp), document.getElementById('root'));
+        };
+    </script>
+
+    <?!= include('DailyEntryTab'); ?>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('root').style.display = 'block';
+            window.initializeEmployeeApp();
+        });
+    </script>
+</body>
+</html>
